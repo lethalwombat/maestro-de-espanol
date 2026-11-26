@@ -17,7 +17,7 @@ Task id: $0
 7. Work one criterion at a time:
    - Write the test and run it (`npx vitest run <file>`). Watch it fail for the right reason.
    - Write the minimum code to pass it. Refactor while green.
-   - Commit: `feat(<area>): <what> (task <id>)`, or `fix:`/`test:`/`refactor:`.
+   - Commit, in the format under "Commit messages" in `CONTRIBUTING.md`. The commit-msg hook refuses any other format and says which rule broke.
    - Add a log line for anything worth knowing later: a decision, a dead end, a surprise.
 8. Anything you notice that the task doesn't need goes under "Discovered", not into the diff.
 9. When every criterion is implemented, run /finish-task.
