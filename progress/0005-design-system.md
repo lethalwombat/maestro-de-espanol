@@ -51,10 +51,30 @@ None open. See the log for the spinner decision.
 - 2026-11-26: The branch had been checked out in a locked worktree under `.claude/worktrees/`, where every edit is refused (`.claude/**` is human-owned). With the user's go-ahead, removed that worktree (it was clean) and continued in the main checkout.
 - 2026-11-26: Installed `tailwindcss`, `@tailwindcss/postcss`, `postcss`, `@axe-core/playwright` (dev) and `lucide-react`, exact versions, as approved in the spec.
 - 2026-11-26: Decision (user): AC17's 300 ms cap applies to one-shot motion (result card, corrections, button press). The spinner's turn uses its own token, `--duration-spin`, and the guide names it as the one exception.
+- 2026-11-26: Unit tests for AC1–AC8 written first and seen failing (missing `tokens.css` and `docs/design.md`, literals in the old `globals.css`), then made to pass. Found and fixed two parser bugs along the way: table separator rows read as tokens, and a CSS comment swallowing the next declaration.
+- 2026-11-26: Discovery: Tailwind's Lightning CSS step polyfills `light-dark()` for its browser targets (`--lightningcss-light` / `--lightningcss-dark` switches). The compiled `:root[data-theme=…]` rules set both switches and outrank the media query, so the plan held; the theme e2e tests confirm it.
+- 2026-11-26: Component and feature unit tests (AC11, AC12, AC14, AC16) seen failing on missing modules and missing spinner/placeholder, then passing. `feedback-form.test.tsx` is unchanged.
+- 2026-11-26: First e2e run: 48/49 passed. The press test failed on a real bug: Tailwind v4's `scale-[0.98]` sets the CSS `scale` property, not `transform`, so the transitions listed the wrong property. Fixed in Button and ThemeToggle.
+- 2026-11-26: The e2e specs were written after the restyle, so to see them fail I ran them in a temporary worktree against earlier commits: at `74658ad` (tokens, no restyle) 28 failed and 16 passed (the passes cover what that commit already had); at `93712c5` (no tokens) the stylesheet and OS-theme tests failed; and at `825dad4` with `--color-*: initial` removed, the default-palette test failed. Worktrees removed afterwards.
+- 2026-11-26: `npm run verify`:
+
+  ```text
+  harness check --full:
+    ✔ tasks (0.1s)
+    ✔ format (1.9s)
+    ✔ typecheck (2.8s)
+    ✔ lint (4.7s)
+    ✔ unit (10.0s)
+    ✔ e2e (7.7s)
+
+  All checks passed.
+  ```
 
 ## Discovered (out of scope)
 
-- None yet.
+- `playwright.config.ts` (human-owned) starts the app with `next start`, which warns that it doesn't work with `output: "standalone"` and suggests `node .next/standalone/server.js`. e2e passes, but it isn't testing the server the Dockerfile ships.
+- `next/font/google` with `subsets: ["latin"]` still emits `@font-face` rules for Inter's other subsets (Cyrillic, Greek, Vietnamese). Only Latin is preloaded, and the others download only if such characters appear, so it's harmless, but it's more CSS than needed.
+- `npm install` warns that `fsevents` has install scripts not covered by `allowScripts`.
 
 ## Acceptance evidence
 
