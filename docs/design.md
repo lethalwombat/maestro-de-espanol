@@ -57,6 +57,7 @@ Each pair below is checked in both themes. Text needs 4.5:1 against every backgr
 | `--color-on-accent`     | `--color-accent-hover`   | text     | Button label on hover and press                   |
 | `--color-success`       | `--color-surface`        | text     | Corrected fragments, "Right" and its icon         |
 | `--color-danger`        | `--color-surface`        | text     | Wrong fragments, "Wrong" and its icon             |
+| `--color-danger`        | `--color-canvas`         | text     | A field's validation message                      |
 | `--color-ring`          | `--color-canvas`         | non-text | Focus ring on the page                            |
 | `--color-ring`          | `--color-surface`        | non-text | Focus ring on the selected theme option           |
 | `--color-ring`          | `--color-surface-muted`  | non-text | Focus ring on the theme toggle's track            |
@@ -182,6 +183,8 @@ Shared components live in `src/components/ui/`, one per file, styled with utilit
 - **Hover:** the border darkens towards `--color-fg-muted`.
 - **Focus-visible:** a 2 px `--color-ring` outline, offset 2 px, on any focus.
 - **Disabled:** 50% opacity, `cursor-not-allowed`.
+- **Invalid:** `aria-invalid="true"`, with the message in `text-sm` `--color-danger` right below, linked by `aria-describedby`. Submitting moves focus back to the field.
+- **Read-only:** once answers are checked, inputs become `readOnly`, keeping full-strength text.
 
 ### Choice group
 

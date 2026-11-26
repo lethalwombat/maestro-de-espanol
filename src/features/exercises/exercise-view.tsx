@@ -137,11 +137,10 @@ function ItemInput({ item, index, value, locked, onAnswer }: ItemInputProps) {
 
 function ItemFeedback({ result, explanation }: { result: ItemResult; explanation: string }) {
   const Icon = result.correct ? CircleCheck : CircleX;
+  const tone = result.correct ? "text-success" : "text-danger";
   return (
     <div className="mt-3 grid gap-1 animate-rise">
-      <p
-        className={`flex items-center gap-2 font-semibold ${result.correct ? "text-success" : "text-danger"}`}
-      >
+      <p className={`flex items-center gap-2 font-semibold ${tone}`}>
         <Icon aria-hidden="true" className="size-5 shrink-0" />
         {result.correct ? "Right" : "Wrong"}
       </p>
