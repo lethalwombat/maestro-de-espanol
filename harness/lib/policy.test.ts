@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  AGENT_WRITABLE_PATHS,
   type BashContext,
   evaluateBash,
   evaluateEdit,
@@ -28,6 +29,9 @@ describe("protected paths", () => {
     [".claude", ".claude/"],
     ["harness/lib/policy.ts", "harness/"],
     ["./.github/workflows/ci.yml", ".github/"],
+    [".github/workflows/evals.yml", ".github/"],
+    [".github/workflows/release.yml", ".github/"],
+    [".github/CODEOWNERS", ".github/"],
     ["tsconfig.json", "tsconfig.json"],
     ["vitest.config.ts", "vitest.config.ts"],
   ])("%s is covered by %s", (path, entry) => {
@@ -40,19 +44,43 @@ describe("protected paths", () => {
     "docs/tsconfig.json.md",
     "src/app/page.tsx",
     "package.json",
+    ".github/workflows/deploy.yml",
+    "./.github/workflows/deploy.yml",
   ])("%s is not protected", (path) => {
     expect(protectedEntry(path)).toBeNull();
   });
 
-  it("are mirrored as Edit deny rules in .claude/settings.json", () => {
-    const settings = JSON.parse(
-      readFileSync(join(import.meta.dirname, "..", "..", ".claude", "settings.json"), "utf8"),
-    ) as { permissions: { deny: string[] } };
+  const settingsDeny = (): string[] =>
+    (
+      JSON.parse(
+        readFileSync(join(import.meta.dirname, "..", "..", ".claude", "settings.json"), "utf8"),
+      ) as { permissions: { deny: string[] } }
+    ).permissions.deny;
+  const holdsException = (entry: string) =>
+    [...AGENT_WRITABLE_PATHS].some((path) => entry.endsWith("/") && path.startsWith(entry));
 
-    const expected = PROTECTED_PATHS.map((entry) =>
+  it("are mirrored as Edit deny rules in .claude/settings.json", () => {
+    const expected = PROTECTED_PATHS.filter((entry) => !holdsException(entry)).map((entry) =>
       entry.endsWith("/") ? `Edit(/${entry}**)` : `Edit(/${entry})`,
     );
-    expect(settings.permissions.deny).toEqual(expect.arrayContaining(expected));
+    expect(settingsDeny()).toEqual(expect.arrayContaining(expected));
+  });
+
+  it("have no blanket deny rule over an agent-writable path, which would override the exception", () => {
+    const holders = PROTECTED_PATHS.filter(holdsException);
+    expect(holders).not.toHaveLength(0);
+    for (const entry of holders) {
+      expect(settingsDeny()).not.toContain(`Edit(/${entry}**)`);
+    }
+  });
+
+  it("keep file-level deny rules for the gate workflows", () => {
+    expect(settingsDeny()).toEqual(
+      expect.arrayContaining([
+        "Edit(/.github/workflows/ci.yml)",
+        "Edit(/.github/workflows/evals.yml)",
+      ]),
+    );
   });
 });
 
@@ -84,6 +112,24 @@ describe("evaluateEdit", () => {
   it("denies edits inside .git", () => {
     expect(
       evaluateEdit({ relPath: ".git/hooks/pre-commit", branch: "task/0002-x" })?.decision,
+    ).toBe("deny");
+  });
+
+  it("allows the deploy workflow on a task branch, but not on main", () => {
+    expect(
+      evaluateEdit({ relPath: ".github/workflows/deploy.yml", branch: "task/0002-x" }),
+    ).toBeNull();
+    expect(
+      evaluateEdit({ relPath: ".github/workflows/deploy.yml", branch: "main" })?.decision,
+    ).toBe("deny");
+  });
+
+  it("still denies the gate workflows on a task branch", () => {
+    expect(
+      evaluateEdit({ relPath: ".github/workflows/ci.yml", branch: "task/0002-x" })?.decision,
+    ).toBe("deny");
+    expect(
+      evaluateEdit({ relPath: ".github/workflows/evals.yml", branch: "task/0002-x" })?.decision,
     ).toBe("deny");
   });
 });
