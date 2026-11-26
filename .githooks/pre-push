@@ -12,4 +12,7 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
       ;;
   esac
 done
+# From a linked worktree git exports an absolute GIT_DIR (and friends). Passed on,
+# they would point every test's git at this repository instead of its temp repo.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
 exec npm run --silent check
