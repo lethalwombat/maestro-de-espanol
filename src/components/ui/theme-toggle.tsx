@@ -23,7 +23,7 @@ export function ThemeToggle({ store = themeStore }: { store?: ThemeStore }) {
       {OPTIONS.map(({ value, label, Icon }) => (
         <label
           key={value}
-          className="relative inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-sm px-2.5 text-sm font-medium text-fg-muted transition-[color,background-color,box-shadow,scale] duration-(--duration-fast) ease-(--ease-out) hover:text-fg active:scale-[0.98] has-checked:bg-surface has-checked:text-fg has-checked:shadow-md"
+          className="relative inline-flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-sm px-2.5 text-sm font-medium text-fg-muted transition-[color,background-color,box-shadow,scale] duration-(--duration-fast) ease-(--ease-out) hover:text-fg active:scale-[0.98] has-checked:bg-surface has-checked:text-fg has-checked:shadow-md has-checked:ring-1 has-checked:ring-border-strong"
         >
           <input
             type="radio"

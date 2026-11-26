@@ -42,30 +42,31 @@ Tailwind's default palette is switched off (`--color-*: initial`), so a class ca
 
 Each pair below is checked in both themes. Text needs 4.5:1 against every background it's used on (WCAG 1.4.3). Focus rings, control borders and icons that carry meaning need 3:1 against the colour next to them (WCAG 1.4.11). Add a row whenever a component puts a colour on a new background.
 
-| Foreground              | Background               | Kind     | Where                                   |
-| ----------------------- | ------------------------ | -------- | --------------------------------------- |
-| `--color-fg`            | `--color-canvas`         | text     | Headings and body text on the page      |
-| `--color-fg`            | `--color-surface`        | text     | Text in cards and the text area         |
-| `--color-fg`            | `--color-surface-muted`  | text     | The selected theme option's label       |
-| `--color-fg`            | `--color-success-subtle` | text     | Success message text                    |
-| `--color-fg`            | `--color-danger-subtle`  | text     | Alert message text                      |
-| `--color-fg`            | `--color-info-subtle`    | text     | Info message text                       |
-| `--color-fg-muted`      | `--color-canvas`         | text     | The lede                                |
-| `--color-fg-muted`      | `--color-surface`        | text     | Explanations, text area placeholder     |
-| `--color-fg-muted`      | `--color-surface-muted`  | text     | Unselected theme option labels          |
-| `--color-on-accent`     | `--color-accent`         | text     | Button label                            |
-| `--color-on-accent`     | `--color-accent-hover`   | text     | Button label on hover and press         |
-| `--color-success`       | `--color-surface`        | text     | Corrected fragments in the card         |
-| `--color-danger`        | `--color-surface`        | text     | Wrong fragments in the card             |
-| `--color-ring`          | `--color-canvas`         | non-text | Focus ring on the page                  |
-| `--color-ring`          | `--color-surface`        | non-text | Focus ring on the selected theme option |
-| `--color-ring`          | `--color-surface-muted`  | non-text | Focus ring on the theme toggle's track  |
-| `--color-border-strong` | `--color-surface`        | non-text | Text area border against its fill       |
-| `--color-border-strong` | `--color-canvas`         | non-text | Text area border against the page       |
-| `--color-accent`        | `--color-canvas`         | non-text | The button's edge against the page      |
-| `--color-success`       | `--color-success-subtle` | non-text | Success icon                            |
-| `--color-danger`        | `--color-danger-subtle`  | non-text | Alert icon                              |
-| `--color-info`          | `--color-info-subtle`    | non-text | Info icon                               |
+| Foreground              | Background               | Kind     | Where                                             |
+| ----------------------- | ------------------------ | -------- | ------------------------------------------------- |
+| `--color-fg`            | `--color-canvas`         | text     | Headings and body text on the page                |
+| `--color-fg`            | `--color-surface`        | text     | Text in cards and the text area                   |
+| `--color-fg`            | `--color-surface-muted`  | text     | Unselected theme option labels on hover           |
+| `--color-fg`            | `--color-success-subtle` | text     | Success message text                              |
+| `--color-fg`            | `--color-danger-subtle`  | text     | Alert message text                                |
+| `--color-fg`            | `--color-info-subtle`    | text     | Info message text                                 |
+| `--color-fg-muted`      | `--color-canvas`         | text     | The lede                                          |
+| `--color-fg-muted`      | `--color-surface`        | text     | Explanations, text area placeholder               |
+| `--color-fg-muted`      | `--color-surface-muted`  | text     | Unselected theme option labels                    |
+| `--color-on-accent`     | `--color-accent`         | text     | Button label                                      |
+| `--color-on-accent`     | `--color-accent-hover`   | text     | Button label on hover and press                   |
+| `--color-success`       | `--color-surface`        | text     | Corrected fragments in the card                   |
+| `--color-danger`        | `--color-surface`        | text     | Wrong fragments in the card                       |
+| `--color-ring`          | `--color-canvas`         | non-text | Focus ring on the page                            |
+| `--color-ring`          | `--color-surface`        | non-text | Focus ring on the selected theme option           |
+| `--color-ring`          | `--color-surface-muted`  | non-text | Focus ring on the theme toggle's track            |
+| `--color-border-strong` | `--color-surface`        | non-text | Text area border against its fill                 |
+| `--color-border-strong` | `--color-canvas`         | non-text | Text area border against the page                 |
+| `--color-border-strong` | `--color-surface-muted`  | non-text | The checked theme option's edge against the track |
+| `--color-accent`        | `--color-canvas`         | non-text | The button's edge against the page                |
+| `--color-success`       | `--color-success-subtle` | non-text | Success icon                                      |
+| `--color-danger`        | `--color-danger-subtle`  | non-text | Alert icon                                        |
+| `--color-info`          | `--color-info-subtle`    | non-text | Info icon                                         |
 
 ## Typography
 
@@ -202,7 +203,7 @@ Shared components live in `src/components/ui/`, one per file, styled with utilit
 - **Hover:** the label turns `--color-fg`.
 - **Focus-visible:** a 2 px `--color-ring` outline on the focused option, offset 2 px.
 - **Active:** `scale-[0.98]` while pressed.
-- **Checked:** `bg-surface`, `--color-fg` label, `shadow-md`.
+- **Checked:** `bg-surface`, `--color-fg` label, `shadow-md`, and a 1 px `--color-border-strong` ring. The ring is what reaches 3:1 against the track (WCAG 1.4.11); the fill alone doesn't.
 
 ## Theming
 

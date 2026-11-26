@@ -123,6 +123,15 @@ describe("ThemeToggle", () => {
     expect(root.dataset.theme).toBe("dark");
   });
 
+  it("edges each option in the strong border colour once checked, so the selection doesn't rest on a faint fill", () => {
+    render(<ThemeToggle store={createThemeStore()} />);
+
+    for (const name of ["System", "Light", "Dark"]) {
+      const option = screen.getByRole("radio", { name }).closest("label");
+      expect(option).toHaveClass("has-checked:ring-1", "has-checked:ring-border-strong");
+    }
+  });
+
   it("shows the saved choice", () => {
     localStorage.setItem("theme", "light");
     render(<ThemeToggle store={createThemeStore()} />);
