@@ -1,6 +1,11 @@
 "use client";
 
 import { type SubmitEvent, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Message } from "@/components/ui/message";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TextArea } from "@/components/ui/text-area";
 import { type Feedback, FeedbackResponseSchema, MAX_SENTENCE_LENGTH } from "./schema";
 
 type State =
@@ -41,10 +46,12 @@ export function FeedbackForm() {
   }
 
   return (
-    <section className="feedback">
-      <form onSubmit={(event) => void onSubmit(event)}>
-        <label htmlFor="sentence">Write a sentence in Spanish</label>
-        <textarea
+    <section className="mt-8">
+      <form className="grid gap-3" onSubmit={(event) => void onSubmit(event)}>
+        <label htmlFor="sentence" className="font-medium">
+          Write a sentence in Spanish
+        </label>
+        <TextArea
           id="sentence"
           name="sentence"
           rows={3}
@@ -55,17 +62,25 @@ export function FeedbackForm() {
             setSentence(event.target.value);
           }}
         />
-        <button type="submit" disabled={loading || sentence.trim() === ""}>
+        <Button
+          type="submit"
+          className="justify-self-start"
+          loading={loading}
+          disabled={sentence.trim() === ""}
+        >
           {loading ? "Checking…" : "Check my sentence"}
-        </button>
+        </Button>
       </form>
 
-      {state.status === "error" && (
-        <p role="alert" className="error">
-          {state.message}
-        </p>
-      )}
-      {state.status === "done" && <FeedbackResult feedback={state.feedback} />}
+      <div className="mt-6">
+        {loading && <Skeleton />}
+        {state.status === "error" && (
+          <Message tone="danger" className="animate-rise">
+            {state.message}
+          </Message>
+        )}
+        {state.status === "done" && <FeedbackResult feedback={state.feedback} />}
+      </div>
     </section>
   );
 }
@@ -73,33 +88,38 @@ export function FeedbackForm() {
 function FeedbackResult({ feedback }: { feedback: Feedback }) {
   if (feedback.verdict === "not_spanish") {
     return (
-      <p role="status" className="result">
+      <Message tone="info" className="animate-rise">
         That doesn&apos;t look like Spanish. Try writing your sentence in Spanish.
-      </p>
+      </Message>
     );
   }
 
   if (feedback.verdict === "correct") {
     return (
-      <p role="status" className="result correct">
+      <Message tone="success" className="animate-rise">
         ¡Perfecto! Your sentence is correct.
-      </p>
+      </Message>
     );
   }
 
   return (
-    <div role="status" className="result">
-      <p>
-        Corrected: <strong>{feedback.corrected}</strong>
+    <Card role="status" className="animate-rise">
+      <p className="text-fg-muted">
+        Corrected: <strong className="text-lg font-semibold text-fg">{feedback.corrected}</strong>
       </p>
-      <ul aria-label="Corrections">
+      <ul aria-label="Corrections" className="mt-4 grid gap-3">
         {feedback.issues.map((issue, index) => (
-          <li key={`${String(index)}-${issue.original}`}>
-            <del>{issue.original}</del> → <ins>{issue.correction}</ins>
-            <span className="explanation">{issue.explanation}</span>
+          <li
+            key={`${String(index)}-${issue.original}`}
+            className="animate-rise"
+            style={{ animationDelay: `calc(var(--delay-stagger) * ${String(index + 1)})` }}
+          >
+            <del className="text-danger decoration-2">{issue.original}</del> →{" "}
+            <ins className="font-semibold text-success no-underline">{issue.correction}</ins>
+            <span className="mt-1 block text-sm text-fg-muted">{issue.explanation}</span>
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }
