@@ -1,0 +1,15 @@
+#!/bin/sh
+# Runs the same gate as Claude's Stop hook before anything leaves the machine,
+# and keeps pushes off main (merge through a pull request instead).
+# A person can override the main check once: ALLOW_MAIN_PUSH=1 git push ...
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main | refs/heads/master)
+      if [ "${ALLOW_MAIN_PUSH:-}" != "1" ]; then
+        echo "pre-push: pushing to ${remote_ref#refs/heads/} is blocked. Push a task branch and open a pull request." >&2
+        exit 1
+      fi
+      ;;
+  esac
+done
+exec npm run --silent check

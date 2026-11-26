@@ -1,0 +1,15 @@
+#!/bin/sh
+# Installed by `npm install` (the prepare script sets core.hooksPath=.githooks).
+# Commits go on task branches. A person can override once, deliberately:
+#   ALLOW_MAIN_COMMIT=1 git commit ...
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null)
+case "$branch" in
+  main | master)
+    if [ "${ALLOW_MAIN_COMMIT:-}" != "1" ]; then
+      echo "pre-commit: commits on $branch are blocked. Use a task branch: git switch -c task/<id>-<slug>" >&2
+      echo "pre-commit: to override once, deliberately: ALLOW_MAIN_COMMIT=1 git commit ..." >&2
+      exit 1
+    fi
+    ;;
+esac
+exit 0

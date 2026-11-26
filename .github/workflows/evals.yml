@@ -1,0 +1,48 @@
+# LLM evals against the real Claude API. They cost money, so they only run when
+# something that affects model behaviour changes, or on demand.
+# Needs the ANTHROPIC_API_KEY repository secret; without it the job is skipped.
+name: Evals
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/llm/**"
+      - "src/features/**/prompt.ts"
+      - "src/features/**/schema.ts"
+      - "evals/**"
+  workflow_dispatch:
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Skip without an API key
+        if: env.ANTHROPIC_API_KEY == ''
+        run: echo "::notice::ANTHROPIC_API_KEY is not set; skipping evals."
+      - uses: actions/checkout@v7
+        if: env.ANTHROPIC_API_KEY != ''
+      - uses: actions/setup-node@v7
+        if: env.ANTHROPIC_API_KEY != ''
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: env.ANTHROPIC_API_KEY != ''
+        run: npm ci
+      - if: env.ANTHROPIC_API_KEY != ''
+        run: npm run evals
+      - uses: actions/upload-artifact@v7
+        if: always() && env.ANTHROPIC_API_KEY != ''
+        with:
+          name: eval-results
+          path: evals/results/
+          retention-days: 30

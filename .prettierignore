@@ -1,0 +1,11 @@
+.next
+out
+coverage
+playwright-report
+test-results
+blob-report
+evals/results
+package-lock.json
+next-env.d.ts
+# Rewritten by `next dev`; keep its formatting as Next.js emits it.
+AGENTS.md
