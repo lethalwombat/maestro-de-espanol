@@ -1,0 +1,187 @@
+// Every Azure resource the app uses, in one resource group. Deployed by
+// .github/workflows/deploy.yml with infra/main.bicepparam; see docs/deployment.md.
+// Redeploying with the same parameters must be a no-op (`az deployment group what-if`).
+
+@description('Azure region for every resource.')
+param location string = 'eastus'
+
+@description('Image tag to run: the full git commit SHA the image was built from.')
+@minLength(7)
+param imageTag string
+
+@description('Container image repository (public, so no registry credentials are needed).')
+param imageRepository string = 'ghcr.io/lethalwombat/maestro-de-espanol'
+
+@description('Application (client) ID of the Entra app registration used for sign-in.')
+param authClientId string
+
+@description('Object ID of the only user allowed in (the owner), checked on top of Entra app assignment.')
+param ownerObjectId string
+
+@description('Daily ingestion cap for Log Analytics, in GB.')
+param logDailyCapGb string = '0.1'
+
+var appName = 'maestro-de-espanol'
+// Must match EXPOSE and PORT in the Dockerfile.
+var appPort = 3000
+
+resource logs 'Microsoft.OperationalInsights/workspaces@2025-07-01' = {
+  name: 'log-${appName}'
+  location: location
+  properties: {
+    sku: {
+      name: 'PerGB2018'
+    }
+    retentionInDays: 30
+    workspaceCapping: {
+      dailyQuotaGb: json(logDailyCapGb)
+    }
+  }
+}
+
+resource environment 'Microsoft.App/managedEnvironments@2026-01-01' = {
+  name: 'cae-${appName}'
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logs.properties.customerId
+        sharedKey: logs.listKeys().primarySharedKey
+      }
+    }
+    // Consumption only: no dedicated workload profiles, so no fixed cost.
+    workloadProfiles: [
+      {
+        name: 'Consumption'
+        workloadProfileType: 'Consumption'
+      }
+    ]
+    zoneRedundant: false
+  }
+}
+
+resource app 'Microsoft.App/containerApps@2026-01-01' = {
+  name: appName
+  location: location
+  properties: {
+    environmentId: environment.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      ingress: {
+        external: true
+        targetPort: appPort
+        transport: 'auto'
+        allowInsecure: false
+        traffic: [
+          {
+            latestRevision: true
+            weight: 100
+          }
+        ]
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: 'web'
+          image: '${imageRepository}:${imageTag}'
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          probes: [
+            {
+              type: 'Startup'
+              httpGet: {
+                path: '/api/health'
+                port: appPort
+              }
+              periodSeconds: 2
+              failureThreshold: 30
+            }
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/api/health'
+                port: appPort
+              }
+              periodSeconds: 10
+              failureThreshold: 3
+            }
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/api/health'
+                port: appPort
+              }
+              periodSeconds: 30
+              failureThreshold: 3
+            }
+          ]
+        }
+      ]
+      // Personal use: scale to zero when idle, never beyond one replica.
+      scale: {
+        minReplicas: 0
+        maxReplicas: 1
+        rules: [
+          {
+            name: 'http'
+            http: {
+              metadata: {
+                concurrentRequests: '10'
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+
+// Built-in authentication (Easy Auth) with Microsoft Entra ID. No client secret:
+// sign-in uses the ID-token flow. Only the owner gets in: the app registration
+// requires assignment (infra/bootstrap.sh), and allowedPrincipals checks the user here too.
+resource auth 'Microsoft.App/containerApps/authConfigs@2026-01-01' = {
+  parent: app
+  name: 'current'
+  properties: {
+    platform: {
+      enabled: true
+    }
+    globalValidation: {
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      redirectToProvider: 'azureactivedirectory'
+      // The deploy workflow and the platform probes check health without signing in.
+      excludedPaths: [
+        '/api/health'
+      ]
+    }
+    identityProviders: {
+      azureActiveDirectory: {
+        enabled: true
+        registration: {
+          clientId: authClientId
+          openIdIssuer: '${az.environment().authentication.loginEndpoint}${tenant().tenantId}/v2.0'
+        }
+        validation: {
+          defaultAuthorizationPolicy: {
+            allowedPrincipals: {
+              identities: [
+                ownerObjectId
+              ]
+            }
+          }
+        }
+      }
+    }
+    httpSettings: {
+      requireHttps: true
+    }
+  }
+}
+
+output url string = 'https://${app.properties.configuration.ingress.fqdn}'
+output appName string = app.name

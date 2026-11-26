@@ -1,4 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import Anthropic from "@anthropic-ai/sdk";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeAnthropic, jsonMessage, type Responder } from "@/lib/llm/testing";
 import { handleFeedbackRequest } from "./handler";
 import { MAX_SENTENCE_LENGTH, type Feedback } from "./schema";
@@ -95,6 +99,49 @@ describe("POST /api/feedback", () => {
 
     expect(response.status).toBe(502);
     expect(json).toMatchObject({ error: "unavailable" });
+  });
+
+  describe("with no Claude credential in the environment", () => {
+    const CREDENTIAL_VARS = [
+      "ANTHROPIC_API_KEY",
+      "ANTHROPIC_AUTH_TOKEN",
+      "ANTHROPIC_PROFILE",
+      "ANTHROPIC_FEDERATION_RULE_ID",
+      "ANTHROPIC_ORGANIZATION_ID",
+      "ANTHROPIC_IDENTITY_TOKEN",
+      "ANTHROPIC_IDENTITY_TOKEN_FILE",
+    ];
+    let configDir: string;
+
+    beforeEach(() => {
+      // An empty config dir, so no `ant auth login` profile on this machine is found.
+      configDir = mkdtempSync(join(tmpdir(), "no-anthropic-config-"));
+      vi.stubEnv("ANTHROPIC_CONFIG_DIR", configDir);
+      for (const name of CREDENTIAL_VARS) vi.stubEnv(name, undefined);
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      rmSync(configDir, { recursive: true, force: true });
+    });
+
+    it("returns the friendly 502 and keeps serving", async () => {
+      const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const fetchSpy = vi.fn<typeof fetch>();
+      // Built like getAnthropicClient(): credentials come only from the environment.
+      const client = new Anthropic({ fetch: fetchSpy, maxRetries: 0 });
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const response = await handleFeedbackRequest(post({ sentence: "Hola." }), client);
+        expect(response.status).toBe(502);
+        expect(await response.json()).toEqual({
+          error: "unavailable",
+          message: "The tutor couldn't check that sentence just now. Please try again.",
+        });
+      }
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(errors).toHaveBeenCalledWith(expect.stringContaining("authentication"));
+    });
   });
 
   it("returns 503 when rate limited", async () => {

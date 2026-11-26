@@ -1,0 +1,157 @@
+# Deploys the app to Azure Container Apps. See docs/deployment.md.
+#
+# - Automatically, after the CI workflow succeeds for a push to main: builds the
+#   image for that commit, pushes it to GHCR, deploys infra/main.bicep with it,
+#   and waits until /api/health reports that commit.
+# - By hand (Run workflow, on main) with an earlier commit SHA: redeploys that
+#   commit's image without rebuilding. This is the rollback path.
+#
+# Signs in to Azure with GitHub OIDC: no Azure secret is stored in GitHub. The
+# AZURE_* / AUTH_CLIENT_ID / OWNER_OBJECT_ID repository variables come from
+# infra/bootstrap.sh.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full commit SHA to redeploy (its image must already be in GHCR)
+        required: true
+        type: string
+
+# One deploy at a time. A second one waits for the first instead of cancelling it.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Only after a successful CI run for a push to main of this repository, never
+    # for pull requests (a fork's branch can also be called "main") or failed runs.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    env:
+      SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.sha || github.event.workflow_run.head_sha }}
+      IMAGE: ghcr.io/${{ github.repository }}
+      BUILD: ${{ github.event_name == 'workflow_run' }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AUTH_CLIENT_ID: ${{ vars.AUTH_CLIENT_ID }}
+      OWNER_OBJECT_ID: ${{ vars.OWNER_OBJECT_ID }}
+    steps:
+      - name: Check inputs and configuration
+        run: |
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::'$SHA' is not a full 40-character lowercase commit SHA."
+            exit 1
+          fi
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Run this workflow on main (it ran on $GITHUB_REF). Only main can sign in to Azure."
+            exit 1
+          fi
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_RESOURCE_GROUP AUTH_CLIENT_ID OWNER_OBJECT_ID; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Repository variable $name is not set. Run infra/bootstrap.sh (docs/deployment.md)."
+              exit 1
+            fi
+          done
+          echo "Deploying $IMAGE:$SHA (build: $BUILD)."
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # The image is built from the commit CI tested. A rollback keeps main's
+      # infrastructure and only swaps the image.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.BUILD == 'true' && env.SHA || github.sha }}
+          persist-credentials: false
+
+      - if: env.BUILD == 'true'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - if: env.BUILD == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the image
+        if: env.BUILD == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          push: true
+          tags: ${{ env.IMAGE }}:${{ env.SHA }}
+          build-args: APP_COMMIT_SHA=${{ env.SHA }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Azure pulls the image without credentials, so it must be public.
+      - name: Check the image can be pulled anonymously
+        run: |
+          token="$(curl -fsS "https://ghcr.io/token?scope=repository:${GITHUB_REPOSITORY}:pull" | jq -r .token)"
+          status="$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/${GITHUB_REPOSITORY}/manifests/${SHA}")"
+          if [[ "$status" == "200" ]]; then
+            echo "$IMAGE:$SHA is publicly pullable."
+          elif [[ "$BUILD" == "true" ]]; then
+            echo "::error::$IMAGE:$SHA was pushed but can't be pulled anonymously (HTTP $status). The GHCR package is probably private: make it public under Package settings > Danger Zone > Change visibility at https://github.com/users/${GITHUB_REPOSITORY_OWNER}/packages/container/${GITHUB_REPOSITORY#*/}/settings, then re-run this workflow."
+            exit 1
+          else
+            echo "::error::$IMAGE:$SHA can't be pulled (HTTP $status). Only commits that were deployed from main have an image; pick one from the Deploy workflow's history."
+            exit 1
+          fi
+
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy infra/main.bicep
+        id: deploy
+        env:
+          IMAGE_TAG: ${{ env.SHA }}
+        run: |
+          url="$(az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --parameters infra/main.bicepparam \
+            --query properties.outputs.url.value \
+            --output tsv)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Deployed to $url"
+
+      - name: Wait for the new version to serve
+        run: infra/wait-for-commit.sh "${{ steps.deploy.outputs.url }}" "$SHA" 300
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed \`${SHA:0:12}\`"
+            echo
+            echo "- URL: ${{ steps.deploy.outputs.url }}"
+            echo "- Image: \`$IMAGE:$SHA\`"
+            echo "- Trigger: ${{ github.event_name }}"
+          } >> "$GITHUB_STEP_SUMMARY"

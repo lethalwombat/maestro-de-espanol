@@ -48,6 +48,9 @@ export async function handleFeedbackRequest(
       );
       return failure(502, "unavailable");
     }
-    throw error;
+    // Anything else (e.g. the SDK's plain Error when no credential is configured)
+    // must not take the request down with a 500: the learner gets the same message.
+    console.error(`sentence-feedback: unexpected error: ${String(error)}`);
+    return failure(502, "unavailable");
   }
 }

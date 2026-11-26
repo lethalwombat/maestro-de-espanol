@@ -1,0 +1,20 @@
+# Keep the build context small and free of secrets and local state.
+.git
+.github
+.githooks
+.claude
+.next
+node_modules
+coverage
+playwright-report
+test-results
+blob-report
+evals/results
+.env*
+!.env.example
+*.pem
+CLAUDE.local.md
+.DS_Store
+npm-debug.log*
+Dockerfile
+.dockerignore
