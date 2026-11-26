@@ -98,6 +98,17 @@ status: in-progress
   - what-if before redeploying: `5 no change, 1 to ignore`. I deployed again (succeeded). what-if after that deploy: `Resource changes: 5 no change, 1 to ignore.` The ignored one is the deploy identity, which isn't in the template.
   - `az containerapp revision list` still shows the single revision `maestro-de-espanol--jljx43g`, so the redeploys didn't restart the app.
 - 2026-11-26: AC6, owner decision. The platform behaviour (browser UA → 302 to sign-in, non-browser → 401, browser plus XHR header → 403, all refused before the app) is accepted as meeting AC6. It's documented in `docs/deployment.md` under "What an anonymous request gets".
+- 2026-11-26: AC6, owner's browser test. The owner signed in with lethalwombat@outlook.com and reached the home page. The owner's second account, igor.churkin@manuka-ai.com.au (another tenant), was refused at sign-in with `AADSTS50020: User account … from identity provider 'https://sts.windows.net/98fe2bdb-…/' does not exist in tenant 'Default Directory' and cannot access the application '1ec317b7-…'(Maestro de Español (sign-in)) in that tenant.`
+- 2026-11-26: Another session ran tasks 0003 (commit and PR standards, PR #3) and 0004 (Claude Code Review, PR #5) in this checkout, which switched it off this branch. Both merged. Part 1 was merged as a merge commit, so I rebased the 4 unpushed part-2 commits onto `origin/main` 338f826 cleanly.
+  - Those 4 headers are 79–101 characters, over 0003's new 72-character limit. They predate the rule, `pr:check` doesn't check branch commits, and the squash merge keeps only the PR title, so I left them. New commits follow `CONTRIBUTING.md`.
+- 2026-11-26: AC8 and AC10, run history (`gh run list --workflow Deploy`). Each merge to `main` deployed via `workflow_run` once CI passed: 45770939641 (`3e3f0aa`), 45780244742 (`5e12c16`) and 45781164449 (`338f826`), all `success`. PR CI runs (e.g. 45770516119 on `task/0002-azure-deploy`, `pull_request`) started no Deploy run, because the `branches: [main]` filter applies to the CI run's head branch.
+  - The `338f826` deploy left `/api/health` reporting `338f8264108fff5d9d1a9d8480c967ca64ea48c6`, the tip of `origin/main`.
+  - Each run's "Wait for the new version to serve" step logged `Live: …/api/health reports commit <sha>.`
+- 2026-11-26: Those `main` deploys used part 1's template, so Azure is back to `destination: 'log-analytics'`. The diagnostic setting from the manual deploy is left in place, because deploys are incremental. AC2 has to be rechecked after part 2 merges and the workflow deploys the fixed template.
+- 2026-11-26: AC11, with the owner's approval.
+  - `gh workflow run Deploy --ref main -f sha=3e3f0aa…` (run 45781645303) succeeded. The build steps were `skipped`, the pull check and deploy passed, and the log shows `Live: …/api/health reports commit 3e3f0aa34999df8948bfbee1ffb29cc89b191f54.` `curl` agreed.
+  - Restored with `-f sha=338f826…` (run 45781909561, success): `Live: … reports commit 338f8264108fff5d9d1a9d8480c967ca64ea48c6.`
+  - Negative case: `-f sha=0000…0000` (run 45782149413) failed at "Check the image can be pulled anonymously" with `##[error]ghcr.io/lethalwombat/maestro-de-espanol:0000…0000 can't be pulled (HTTP 404). Only commits that were deployed from main have an image…`. `azure/login` was `skipped`, so Azure wasn't touched.
 
 ## Discovered (out of scope)
 
