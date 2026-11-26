@@ -66,7 +66,16 @@ Two new features, side by side with `sentence-feedback`, plus a nav and the Azur
 - 2026-11-26: Two false positives from `design-guide.test.ts`'s old-class guard (`aria-[current=page]` and an interpolated `${result.correct…}` inside a className). Rewrote my code, not the test.
 - 2026-11-26: e2e: the mock answers `<topic>` requests. Topic `eco del prompt` titles its exercise with the first line of the system prompt it received, which proves AC17 end to end. `prompt-admin.spec.ts` runs serially because one app process holds the memory store. As in task 0005, the e2e specs were written after the code, so they weren't seen failing first; the unit tests were.
 
+- 2026-11-26: Eval suite built (`evals/exercises/`): cases approved by the owner, Claude as judge in the eval only, plus a judge-calibration eval (2 good exercises, 2 with a planted wrong key). Grader and judge plumbing unit-tested hermetically (17 tests). Not run yet.
+- 2026-11-26: Measured one real exercise call (Opus 5.5, medium effort, default prompt, topic "ser vs estar", no judge): 10 items, keys checked by eye and correct; 1,560 output tokens, 20 uncached input tokens + 1,986 read from the prompt cache; $0.032; 15.2 s. A first call after the cache expires pays about 1 cent more to write it. Two earlier attempts also called the API (about 15 s each), but their output was lost because vitest swallowed the console in a non-interactive shell; the script now writes its result to a file first. Revised estimate for the AC23 run: about $2 (28 generations + 26 judge calls, judge output not yet measured).
+- 2026-11-26: The API key lives in `~/.zshrc`, which the Claude Code shell snapshot doesn't pick up mid-session; commands that need it run under `zsh -ic`.
+- 2026-11-26: Paused by the owner before the AC23 eval run. Open: the run itself (asked for the Opus baseline; owner to confirm), a `what-if` against the personal subscription, re-running `infra/bootstrap.sh` before merge, /finish-task.
+
 ## Discovered (out of scope)
+
+- A cheaper model (Claude Sonnet 5.5 or Haiku 5.5) or lower effort for exercises: a product decision, to be measured with `EVAL_MODEL` sweeps. Owner floated it on 2026-11-26; suggested as its own task.
+- Running Claude through Microsoft Foundry: same per-token prices, but Azure billing and possibly keyless sign-in. Needs `@anthropic-ai/foundry-sdk`, client-side refusal fallbacks (Foundry has no server-side `fallbacks`) and a Bicep resource. Suggested as its own task.
+- Harness (human-owned): the run-evals skill describes only the sentence-feedback suite and its cost; `.github/workflows/evals.yml` would run every suite on each qualifying pull request push once an `ANTHROPIC_API_KEY` secret exists.
 
 ## Acceptance evidence
 
