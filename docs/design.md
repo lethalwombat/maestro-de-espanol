@@ -55,8 +55,8 @@ Each pair below is checked in both themes. Text needs 4.5:1 against every backgr
 | `--color-fg-muted`      | `--color-surface-muted`  | text     | Unselected theme option labels                    |
 | `--color-on-accent`     | `--color-accent`         | text     | Button label                                      |
 | `--color-on-accent`     | `--color-accent-hover`   | text     | Button label on hover and press                   |
-| `--color-success`       | `--color-surface`        | text     | Corrected fragments in the card                   |
-| `--color-danger`        | `--color-surface`        | text     | Wrong fragments in the card                       |
+| `--color-success`       | `--color-surface`        | text     | Corrected fragments, "Right" and its icon         |
+| `--color-danger`        | `--color-surface`        | text     | Wrong fragments, "Wrong" and its icon             |
 | `--color-ring`          | `--color-canvas`         | non-text | Focus ring on the page                            |
 | `--color-ring`          | `--color-surface`        | non-text | Focus ring on the selected theme option           |
 | `--color-ring`          | `--color-surface-muted`  | non-text | Focus ring on the theme toggle's track            |
@@ -64,6 +64,7 @@ Each pair below is checked in both themes. Text needs 4.5:1 against every backgr
 | `--color-border-strong` | `--color-canvas`         | non-text | Text area border against the page                 |
 | `--color-border-strong` | `--color-surface-muted`  | non-text | The checked theme option's edge against the track |
 | `--color-accent`        | `--color-canvas`         | non-text | The button's edge against the page                |
+| `--color-accent`        | `--color-surface`        | non-text | A checked radio in a choice group                 |
 | `--color-success`       | `--color-success-subtle` | non-text | Success icon                                      |
 | `--color-danger`        | `--color-danger-subtle`  | non-text | Alert icon                                        |
 | `--color-info`          | `--color-info-subtle`    | non-text | Info icon                                         |
@@ -139,6 +140,7 @@ Icons come from [Lucide](https://lucide.dev) (`lucide-react`): 20 px (`size-5`) 
 | Success | `CircleCheck` |
 | Info    | `Info`        |
 | Alert   | `CircleAlert` |
+| Wrong   | `CircleX`     |
 | System  | `Monitor`     |
 | Light   | `Sun`         |
 | Dark    | `Moon`        |
@@ -158,6 +160,11 @@ Shared components live in `src/components/ui/`, one per file, styled with utilit
 - **Disabled:** 50% opacity, `cursor-not-allowed`, no hover change. A disabled button isn't focusable.
 - **Loading:** pass `loading`. The button is disabled and shows a spinner before its label ("Checking…"); the spinner is hidden from assistive technology, so the label is the accessible name.
 
+`<Button variant="secondary">`: a quieter action beside the primary one ("Try again", "New exercise"). `bg-surface`, `text-fg`, a 1 px `--color-border-strong` border, otherwise the same shape, size and states.
+
+- **Hover and active:** `bg-surface-muted`.
+- **Focus-visible, disabled, loading:** as the primary button.
+
 ### Text area
 
 `<TextArea>`: multi-line input, full width, `bg-surface`, `border-border-strong`, `rounded-md`, `text-base`. It always has a visible `<label>`.
@@ -166,6 +173,34 @@ Shared components live in `src/components/ui/`, one per file, styled with utilit
 - **Hover:** the border darkens towards `--color-fg-muted`.
 - **Focus-visible:** a 2 px `--color-ring` outline, offset 2 px. A text area shows it on any focus, as browsers do.
 - **Disabled:** 50% opacity, `cursor-not-allowed`.
+
+### Text input
+
+`<TextInput>`: single-line input, styled exactly like the text area (it shares its classes) and at least 44 px tall. It always has a visible `<label>`.
+
+- **Default:** a 1 px `--color-border-strong` border on `bg-surface`.
+- **Hover:** the border darkens towards `--color-fg-muted`.
+- **Focus-visible:** a 2 px `--color-ring` outline, offset 2 px, on any focus.
+- **Disabled:** 50% opacity, `cursor-not-allowed`.
+
+### Choice group
+
+`<ChoiceGroup>`: one answer from a short list, for multiple-choice items. A `<fieldset>` with `role="radiogroup"`, named by its `<legend>` (the question). Each option is a native radio inside a full-width row at least 44 px tall, so arrow keys move between options and the whole row is the target.
+
+- **Default:** rows are `bg-surface` with a `--color-border` border; the radio is drawn by the browser in `accent-color: --color-accent`.
+- **Hover:** the row's border darkens towards `--color-fg-muted`.
+- **Focus-visible:** a 2 px `--color-ring` outline around the focused radio, offset 2 px.
+- **Checked:** the radio fills with the accent, and the row's border becomes `--color-border-strong`.
+- **Disabled:** pass `disabled` to lock the answers once they're checked. Rows keep full-strength text so the learner can still read them, with `cursor-not-allowed` and no hover change.
+
+### Site header
+
+`<SiteHeader heading current>`: every page's header. The page's `h1`, then a row with the main navigation (`<nav aria-label="Main">`) and the theme toggle, wrapping on narrow screens. That DOM order is also the visual and tab order.
+
+- **Default:** links are `text-sm`, medium weight, `--color-fg-muted`, at least 44 px tall.
+- **Hover:** the link turns `--color-fg`.
+- **Focus-visible:** a 2 px `--color-ring` outline, offset 2 px.
+- **Current page:** `aria-current="page"`, `--color-fg`, underlined 2 px in `--color-accent`. The underline, not the colour alone, marks it.
 
 ### Card
 
@@ -225,11 +260,11 @@ The layout is one column, designed for 320 px first and checked at 320, 390, 768
 
 ## Accessibility
 
-- WCAG 2.2 A and AA. axe (`@axe-core/playwright`) scans the home page in every state, in both themes, in e2e.
+- WCAG 2.2 A and AA. axe (`@axe-core/playwright`) scans the home page and `/exercises` in every state, in both themes, in e2e.
 - Contrast: see [Contrast pairs](#contrast-pairs).
 - Focus: every control shows a focus ring at least 2 px thick, in `--color-ring`, in both themes. Never remove an outline without replacing it.
-- Targets: buttons and theme options are at least 44 × 44 CSS px.
-- Keyboard: everything works with Tab, Shift+Tab, arrow keys (in the theme toggle), Space and Enter.
+- Targets: buttons, theme options, choice rows, text inputs and navigation links are at least 44 CSS px tall.
+- Keyboard: everything works with Tab, Shift+Tab, arrow keys (in the theme toggle and choice groups), Space and Enter.
 - Meaning never rests on colour or an icon alone. Struck-through text (`<del>`) and inserted text (`<ins>`) mark wrong and corrected fragments, as well as colour.
 - Status updates use `role="status"`, failures `role="alert"`, and loading regions `aria-busy="true"`.
 - Reduced motion switches off all animation and transition.
