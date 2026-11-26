@@ -58,6 +58,8 @@ Two new features, side by side with `sentence-feedback`, plus a nav and the Azur
 
 - 2026-11-26: Started. Spec committed on the branch as its first commit (agreed with the owner).
 - 2026-11-26: Owner decisions: narrow RBAC admin for the deployment identity (Q1), and Claude as judge in the eval (Q2).
+- 2026-11-26: Probed `betaZodOutputFormat` (SDK 1.14.0): a discriminated union becomes `anyOf`, `optional()` fields leave `required`, array and number bounds are moved into the field's `description`, and `refine()` checks are dropped from the schema. So the API enforces only shape; `requestStructured()`'s own `safeParse` enforces bounds and refinements, which is what makes a breach `invalid_output` (AC3). An off-topic reply can't carry 5 items, so the output is `{ on_topic, exercise: Exercise | null }` with a refinement linking the two.
+- 2026-11-26: Decision (AC10): "accents" means the acute accent and the diaeresis. Ñ is a letter, not an accent ("ano" vs "año"), so a missing tilde is marked wrong. A wrongly placed accent ("ésta" for "está") also counts as an accent slip.
 
 ## Discovered (out of scope)
 
