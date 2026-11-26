@@ -89,7 +89,14 @@ fi
 DEPLOY_CLIENT_ID="$(jq -r .clientId <<<"$identity")"
 DEPLOY_PRINCIPAL_ID="$(jq -r .principalId <<<"$identity")"
 
-subject="repo:${REPO}:ref:refs/heads/main"
+# Ask GitHub for the subject prefix its OIDC tokens use for this repository: with
+# immutable subjects it is "repo:<owner>@<owner id>/<repo>@<repo id>", not "repo:<owner>/<repo>".
+oidc="$(gh api "repos/$REPO/actions/oidc/customization/sub")"
+[[ "$(jq -r .use_default <<<"$oidc")" == "true" ]] ||
+  fail "this repository customizes its OIDC subject claim ($oidc); the federated credential subject below assumes the default."
+subject="$(jq -r '.sub_claim_prefix // empty' <<<"$oidc")"
+[[ -n "$subject" ]] || subject="repo:${REPO}"
+subject="${subject}:ref:refs/heads/main"
 if fic="$(az identity federated-credential show --name "$FEDERATED_CREDENTIAL" --identity-name "$DEPLOY_IDENTITY" --resource-group "$RESOURCE_GROUP" --output json 2>/dev/null)"; then
   if [[ "$(jq -r .subject <<<"$fic")" == "$subject" && "$(jq -r .issuer <<<"$fic")" == "$GITHUB_OIDC_ISSUER" &&
     "$(jq -r '.audiences | join(",")' <<<"$fic")" == "$OIDC_AUDIENCE" ]]; then
@@ -152,7 +159,7 @@ if fqdn="$(az resource show --resource-group "$RESOURCE_GROUP" --resource-type M
   else
     uris=() # macOS ships bash 3.2: no mapfile
     while IFS= read -r uri; do uris+=("$uri"); done < <(jq -r '.web.redirectUris[]' <<<"$app")
-    az ad app update --id "$AUTH_CLIENT_ID" --web-redirect-uris "${uris[@]}" "$callback"
+    az ad app update --id "$AUTH_CLIENT_ID" --web-redirect-uris ${uris[@]+"${uris[@]}"} "$callback" # bash 3.2 + set -u: empty array guard
     changed + "sign-in callback $callback"
   fi
 else
