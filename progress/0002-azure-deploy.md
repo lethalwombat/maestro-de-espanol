@@ -109,6 +109,7 @@ status: in-progress
   - `gh workflow run Deploy --ref main -f sha=3e3f0aa…` (run 45781645303) succeeded. The build steps were `skipped`, the pull check and deploy passed, and the log shows `Live: …/api/health reports commit 3e3f0aa34999df8948bfbee1ffb29cc89b191f54.` `curl` agreed.
   - Restored with `-f sha=338f826…` (run 45781909561, success): `Live: … reports commit 338f8264108fff5d9d1a9d8480c967ca64ea48c6.`
   - Negative case: `-f sha=0000…0000` (run 45782149413) failed at "Check the image can be pulled anonymously" with `##[error]ghcr.io/lethalwombat/maestro-de-espanol:0000…0000 can't be pulled (HTTP 404). Only commits that were deployed from main have an image…`. `azure/login` was `skipped`, so Azure wasn't touched.
+- 2026-11-26: AC7, deployed app. Signed in, the owner submitted "Hello" and the page showed "The tutor couldn't check that sentence just now. Please try again." (owner's screenshot), and stayed usable. In Log Analytics, `ContainerAppConsoleLogs_CL | where Log has 'sentence-feedback'` shows `sentence-feedback: unexpected error: Error: Could not resolve authentication method…` at 07:26:56, 07:32:57–59 and 08:21:04 UTC. That's the non-API-error branch that answers 502 `unavailable`, and the app served each later request.
 
 ## Discovered (out of scope)
 
