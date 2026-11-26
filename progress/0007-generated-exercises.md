@@ -60,6 +60,11 @@ Two new features, side by side with `sentence-feedback`, plus a nav and the Azur
 - 2026-11-26: Owner decisions: narrow RBAC admin for the deployment identity (Q1), and Claude as judge in the eval (Q2).
 - 2026-11-26: Probed `betaZodOutputFormat` (SDK 1.14.0): a discriminated union becomes `anyOf`, `optional()` fields leave `required`, array and number bounds are moved into the field's `description`, and `refine()` checks are dropped from the schema. So the API enforces only shape; `requestStructured()`'s own `safeParse` enforces bounds and refinements, which is what makes a breach `invalid_output` (AC3). An off-topic reply can't carry 5 items, so the output is `{ on_topic, exercise: Exercise | null }` with a refinement linking the two.
 - 2026-11-26: Decision (AC10): "accents" means the acute accent and the diaeresis. Ñ is a letter, not an accent ("ano" vs "año"), so a missing tilde is marked wrong. A wrongly placed accent ("ésta" for "está") also counts as an accent slip.
+- 2026-11-26: Decision (AC12): "New exercise" clears the current exercise and puts focus (with the text selected) back in the topic field, keeping the old topic for editing. Neither it nor "Try again" sends a request.
+- 2026-11-26: Decision (AC20): `PROMPT_STORE` unset means the memory store. The human-owned `playwright.config.ts` doesn't set it, so e2e gets memory without a config change, and a stray local run never writes files. Local persistence is opt-in with `PROMPT_STORE=file` (`.data/prompts.json`, gitignored).
+- 2026-11-26: Surprise: `cacheComponents` is on, so a `GET` route handler that only reads the in-memory store could be prerendered at build. `GET /api/admin/prompts` awaits `connection()` to stay request-time.
+- 2026-11-26: Two false positives from `design-guide.test.ts`'s old-class guard (`aria-[current=page]` and an interpolated `${result.correct…}` inside a className). Rewrote my code, not the test.
+- 2026-11-26: e2e: the mock answers `<topic>` requests. Topic `eco del prompt` titles its exercise with the first line of the system prompt it received, which proves AC17 end to end. `prompt-admin.spec.ts` runs serially because one app process holds the memory store. As in task 0005, the e2e specs were written after the code, so they weren't seen failing first; the unit tests were.
 
 ## Discovered (out of scope)
 
