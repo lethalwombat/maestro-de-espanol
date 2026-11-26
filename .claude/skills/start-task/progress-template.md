@@ -22,3 +22,7 @@ Approach, files likely to change, the first failing test per criterion, risks, o
 ## Definition of Done
 
 (Filled in by /finish-task.)
+
+## Pull request
+
+(Drafted by /finish-task: the title, then the body in a fenced `markdown` block.)

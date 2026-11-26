@@ -1,0 +1,7 @@
+#!/bin/sh
+# Installed by `npm install` (the prepare script sets core.hooksPath=.githooks).
+# Checks every commit message against CONTRIBUTING.md, with the same validator
+# CI uses for pull request titles (harness/lib/commit-message.ts). On a task
+# branch the header must name that branch's task; on any other branch only
+# git's own messages (merges, reverts, fixups) get through.
+exec node "$(dirname "$0")/../harness/cli/commit-msg.ts" "$1"

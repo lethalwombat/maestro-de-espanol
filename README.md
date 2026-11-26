@@ -16,21 +16,22 @@ npm run dev                     # http://localhost:3000
 
 ## Commands
 
-| Command          | What it runs                                                      |
-| ---------------- | ----------------------------------------------------------------- |
-| `npm run check`  | Task files, formatting, typecheck, lint, unit tests with coverage |
-| `npm run verify` | `check`, then a production build and the Playwright e2e tests     |
-| `npm run evals`  | LLM evals against the real Claude API (costs money)               |
-| `npm run tasks`  | Task list and status                                              |
+| Command            | What it runs                                                      |
+| ------------------ | ----------------------------------------------------------------- |
+| `npm run check`    | Task files, formatting, typecheck, lint, unit tests with coverage |
+| `npm run verify`   | `check`, then a production build and the Playwright e2e tests     |
+| `npm run evals`    | LLM evals against the real Claude API (costs money)               |
+| `npm run tasks`    | Task list and status                                              |
+| `npm run pr:check` | A pull request's title, body and branch, as CI checks them        |
 
 ## Working with Claude Code
 
 1. **Describe the work**: `/new-task <what you want>`. Claude interviews you and drafts a spec in `tasks/` for your approval.
 2. **Build it**: `/start-task <id>`. Claude creates a task branch and a progress file, plans, then works test-first, one criterion at a time.
-3. **Close it out**: `/finish-task`. Claude runs `verify`, has an independent reviewer check the diff against the spec, and records evidence against the [Definition of Done](docs/definition-of-done.md).
-4. **Merge**: you review the pull request and merge it.
+3. **Close it out**: `/finish-task`. Claude runs `verify`, has an independent reviewer check the diff against the spec, records evidence against the [Definition of Done](docs/definition-of-done.md), and drafts the pull request.
+4. **Merge**: you review the pull request and squash-merge it.
 
-How tasks work is described in [tasks/README.md](tasks/README.md), and every guardrail in [docs/harness.md](docs/harness.md).
+Branch names, the commit and pull request formats, and how they're enforced are in [CONTRIBUTING.md](CONTRIBUTING.md). How tasks work is described in [tasks/README.md](tasks/README.md), and every guardrail in [docs/harness.md](docs/harness.md).
 
 ## Deployment
 
