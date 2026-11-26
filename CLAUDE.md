@@ -34,6 +34,7 @@ A Spanish-tutor web app: Next.js 16 (App Router), strict TypeScript, Claude thro
 
 - A feature lives in `src/features/<feature>/`, with its logic, prompt, schema, UI and tests side by side. `src/app/` stays a thin routing layer.
 - Every Claude call goes through `src/lib/llm/`. Model, effort and fallbacks are set once in `config.ts`, and `requestStructured()` handles refusals, truncation and invalid output. Unit tests use `fakeAnthropic()` from `src/lib/llm/testing.ts`. Real network access is blocked in unit tests.
+- UI work follows the design system in [docs/design.md](docs/design.md). Tokens live in `src/styles/tokens.css` and shared components in `src/components/ui/`. Use semantic token classes (`bg-surface`, `text-fg-muted`), never a colour literal.
 - Validate anything from outside with zod: request bodies, LLM output, API responses in the browser.
 - Use `@/` imports in `src/`. Harness code under `harness/` runs directly on Node, so it uses relative imports with `.ts` extensions.
 
