@@ -39,6 +39,8 @@ Changed: `vitest.config.ts`, `.githooks/pre-push`.
 - 2026-11-26: AC6. `npm run check` in the main checkout fails lint on `.claude/worktrees/task+0005-design-system/.next/types/` only. A clean clone with a symlinked `node_modules` broke Turbopack's root detection for e2e, so the clone gets an APFS copy (`cp -cR`), and `verify` passes there.
 - 2026-11-26: AC4, test first. Of the four pre-push tests, only the `GIT_*` test failed before the `unset`. The refusal and override tests passed before and after, which shows they behave as before. I checked the red again after the final assertion rewrite by stashing the hook change.
 
+- 2026-11-26: AC7. The spec said the owner runs the worktree push, and the owner asked me to run it instead. Before pushing, I backed up `.git/config` and `git for-each-ref` to the scratchpad, switched the main checkout to `main` and added the worktree. Evidence is under AC7.
+
 ## Discovered (out of scope)
 
 - `npm run lint` runs `eslint .`, which descends into `.claude/worktrees/*/.next/types/` (Next.js generated files in a linked worktree under `.claude/worktrees/`, untracked in this repo). Once a worktree has built, `npm run check` fails in the main checkout with about 100 errors that aren't in the repo. Adding `.claude/worktrees/**` (or `**/.next/**`) to the ESLint ignores would fix it. `eslint.config.mjs` is human-owned.
@@ -95,7 +97,46 @@ Changed: `vitest.config.ts`, `.githooks/pre-push`.
 
   Unit tests: `Test Files 18 passed (18)`, `Tests 387 passed (387)`.
 
-- AC7: pending. The owner runs the push from a linked worktree.
+- AC7: the owner asked me to run the push, so I did, from the linked worktree `.claude/worktrees/task+0006-hermetic-git-in-tests` (`git rev-parse --git-dir` gave `/Users/igorchurkin/git/maestro-de-espanol/.git/worktrees/task+0006-hermetic-git-in-tests`), at 1bb4bde. I pushed with `git push origin task/0006-hermetic-git-in-tests`, without `-u`, so no upstream entry was added to the config. The pre-push hook ran `check` (tasks, format, typecheck, lint and unit all passed), and the push created the remote branch. `git config --local --list`, `git branch` and `git worktree list` from the main checkout were identical before and after (`diff` printed nothing), and `.git/config` was byte-identical to a backup taken first (`cmp`). The only ref change was the expected new `refs/remotes/origin/task/0006-hermetic-git-in-tests`. Before and after:
+
+  ```
+  core.repositoryformatversion=0
+  core.filemode=true
+  core.bare=false
+  core.logallrefupdates=true
+  core.ignorecase=true
+  core.precomposeunicode=true
+  core.hookspath=.githooks
+  remote.origin.url=https://github.com/lethalwombat/maestro-de-espanol.git
+  remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*
+  branch.master.remote=origin
+  branch.master.merge=refs/heads/master
+  user.name=Igor Churkin
+  user.email=84167672+lethalwombat@users.noreply.github.com
+  branch.main.remote=origin
+  branch.main.merge=refs/heads/main
+  branch.harness/agent-writable-deploy-workflow.remote=origin
+  branch.harness/agent-writable-deploy-workflow.merge=refs/heads/harness/agent-writable-deploy-workflow
+  branch.task/0002-azure-deploy.remote=origin
+  branch.task/0002-azure-deploy.merge=refs/heads/task/0002-azure-deploy
+  branch.task/0003-contribution-standards.remote=origin
+  branch.task/0003-contribution-standards.merge=refs/heads/task/0003-contribution-standards
+  branch.task/0004-claude-code-review.remote=origin
+  branch.task/0004-claude-code-review.merge=refs/heads/task/0004-claude-code-review
+  commit.gpgsign=false
+
+    harness/agent-writable-deploy-workflow
+  * main
+    task/0002-azure-deploy
+    task/0003-contribution-standards
+    task/0004-claude-code-review
+  + task/0005-design-system
+  + task/0006-hermetic-git-in-tests
+
+  /Users/igorchurkin/git/maestro-de-espanol                                                   4a29c03 [main]
+  /Users/igorchurkin/git/maestro-de-espanol/.claude/worktrees/task+0005-design-system         ec5ac35 [task/0005-design-system] locked
+  /Users/igorchurkin/git/maestro-de-espanol/.claude/worktrees/task+0006-hermetic-git-in-tests 1bb4bde [task/0006-hermetic-git-in-tests]
+  ```
 
 ## Definition of Done
 
