@@ -43,12 +43,11 @@ resource environment 'Microsoft.App/managedEnvironments@2026-01-01' = {
   name: 'cae-${appName}'
   location: location
   properties: {
+    // Logs go to the workspace through the diagnostic setting below, which names it by
+    // resource id. (The 'log-analytics' destination needs the workspace's customerId via
+    // reference(), which what-if can't resolve, so every redeploy would show a change.)
     appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logs.properties.customerId
-        sharedKey: logs.listKeys().primarySharedKey
-      }
+      destination: 'azure-monitor'
     }
     // Consumption only: no dedicated workload profiles, so no fixed cost.
     workloadProfiles: [
@@ -58,6 +57,36 @@ resource environment 'Microsoft.App/managedEnvironments@2026-01-01' = {
       }
     ]
     zoneRedundant: false
+    // Server defaults, stated so what-if reports no changes on a redeploy.
+    publicNetworkAccess: 'Enabled'
+    peerAuthentication: {
+      mtls: {
+        enabled: false
+      }
+    }
+    peerTrafficConfiguration: {
+      encryption: {
+        enabled: false
+      }
+    }
+  }
+}
+
+resource environmentLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  scope: environment
+  name: 'to-log-analytics'
+  properties: {
+    workspaceId: logs.id
+    logs: [
+      {
+        category: 'ContainerAppConsoleLogs'
+        enabled: true
+      }
+      {
+        category: 'ContainerAppSystemLogs'
+        enabled: true
+      }
+    ]
   }
 }
 
@@ -69,9 +98,11 @@ resource app 'Microsoft.App/containerApps@2026-01-01' = {
     workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
+      maxInactiveRevisions: 100 // server default, stated for a clean what-if
       ingress: {
         external: true
         targetPort: appPort
+        exposedPort: 0 // server default, stated for a clean what-if
         transport: 'auto'
         allowInsecure: false
         traffic: [
@@ -91,15 +122,16 @@ resource app 'Microsoft.App/containerApps@2026-01-01' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
+          // In the order Azure stores them (Liveness, Readiness, Startup), so what-if matches.
           probes: [
             {
-              type: 'Startup'
+              type: 'Liveness'
               httpGet: {
                 path: '/api/health'
                 port: appPort
               }
-              periodSeconds: 2
-              failureThreshold: 30
+              periodSeconds: 30
+              failureThreshold: 3
             }
             {
               type: 'Readiness'
@@ -111,13 +143,13 @@ resource app 'Microsoft.App/containerApps@2026-01-01' = {
               failureThreshold: 3
             }
             {
-              type: 'Liveness'
+              type: 'Startup'
               httpGet: {
                 path: '/api/health'
                 port: appPort
               }
-              periodSeconds: 30
-              failureThreshold: 3
+              periodSeconds: 2
+              failureThreshold: 30
             }
           ]
         }
@@ -126,6 +158,9 @@ resource app 'Microsoft.App/containerApps@2026-01-01' = {
       scale: {
         minReplicas: 0
         maxReplicas: 1
+        // Server defaults (seconds), stated for a clean what-if.
+        cooldownPeriod: 300
+        pollingInterval: 30
         rules: [
           {
             name: 'http'
@@ -162,6 +197,7 @@ resource auth 'Microsoft.App/containerApps/authConfigs@2026-01-01' = {
     identityProviders: {
       azureActiveDirectory: {
         enabled: true
+        isAutoProvisioned: false // server default, stated for a clean what-if
         registration: {
           clientId: authClientId
           openIdIssuer: '${az.environment().authentication.loginEndpoint}${tenant().tenantId}/v2.0'
