@@ -23,11 +23,6 @@ on:
         required: true
         type: string
 
-# One deploy at a time. A second one waits for the first instead of cancelling it.
-concurrency:
-  group: deploy
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -41,6 +36,13 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main' &&
       github.event.workflow_run.head_repository.full_name == github.repository)
+    # One deploy at a time: a second one waits for the first instead of cancelling it.
+    # Set on the job, not the workflow, so runs whose job is skipped by the `if` above
+    # (failed CI, pull requests) never join the group. GitHub keeps one pending run per
+    # group, and a skipped run joining it would cancel a real deploy waiting there.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:

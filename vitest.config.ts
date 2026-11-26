@@ -17,7 +17,7 @@ export default defineConfig({
           name: "node",
           environment: "node",
           include: ["src/**/*.test.ts", "harness/**/*.test.ts", "evals/**/*.test.ts"],
-          setupFiles: ["./harness/vitest/no-network.ts"],
+          setupFiles: ["./harness/vitest/no-network.ts", "./harness/vitest/hermetic-git.ts"],
         },
       },
       {
@@ -26,7 +26,11 @@ export default defineConfig({
           name: "dom",
           environment: "jsdom",
           include: ["src/**/*.test.tsx"],
-          setupFiles: ["./harness/vitest/no-network.ts", "./harness/vitest/dom.ts"],
+          setupFiles: [
+            "./harness/vitest/no-network.ts",
+            "./harness/vitest/hermetic-git.ts",
+            "./harness/vitest/dom.ts",
+          ],
         },
       },
     ],
