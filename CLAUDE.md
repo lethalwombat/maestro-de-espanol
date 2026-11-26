@@ -12,11 +12,13 @@ A Spanish-tutor web app: Next.js 16 (App Router), strict TypeScript, Claude thro
 - `npx playwright test e2e/file.spec.ts`: one e2e file. It builds the app first, so it takes about a minute.
 - `npm run evals`: the LLM evals, against the real API. They cost money, so ask before running them. Required when a prompt, an output schema or `src/lib/llm/` changes (see /run-evals).
 - `npm run tasks`: tasks and their status.
+- `npm run pr:check -- --title … --body-file … --branch …`: checks a pull request's title, body and branch, as CI's `pr-standards` job does. /finish-task runs it on its draft.
 
 ## How work happens here
 
 - Every change belongs to a task spec in `tasks/`. Specs are human-owned: writing or editing one asks the user. No spec for the work? Ask the user, or draft one with /new-task.
 - Work happens on a `task/<id>-<slug>` branch. Edits and commits on `main` are blocked.
+- Commits and pull requests follow [CONTRIBUTING.md](CONTRIBUTING.md). The commit-msg hook refuses any other commit format, and CI's `pr-standards` check refuses a pull request whose title or body doesn't follow it.
 - Keep notes in `progress/<id>-<slug>.md`: plan, log, decisions, discoveries, evidence. After compaction or `/clear`, the SessionStart hook re-injects the task's objective and scope.
 - Start with `/start-task <id>`. Finish with `/finish-task`, which goes through @docs/definition-of-done.md.
 

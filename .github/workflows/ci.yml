@@ -1,9 +1,15 @@
-# The same gates as `npm run verify`, on every pull request and on main.
-# Make "check" and "e2e" required status checks on main (see docs/harness.md).
+# The same gates as `npm run verify`, on every pull request and on main, plus
+# the pull request standard from CONTRIBUTING.md. Make "check", "e2e" and
+# "pr-standards" required status checks on main (see docs/harness.md).
 name: CI
 
 on:
   pull_request:
+    # "edited" re-checks the title and body when they change, with no new push.
+    # It re-runs check and e2e too: skipping them with a job-level `if` would
+    # post a "skipped" run under the same required-check name, which GitHub
+    # counts as passing, and that could hide a real failure on the same commit.
+    types: [opened, edited, synchronize, reopened]
   push:
     branches: [main]
   workflow_dispatch:
@@ -48,3 +54,27 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  # The title, body and branch against CONTRIBUTING.md, with the validator the
+  # commit-msg hook uses. Branch commits aren't checked: squash merging puts only
+  # the title on main. pr:check needs no dependencies, so there's no npm ci.
+  pr-standards:
+    name: pr-standards
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Check the title, body and branch
+        # Passed through env, never inlined with ${{ }}, so a title or body
+        # can't inject shell commands.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          npm run pr:check -- --title "$PR_TITLE" --body-file "$RUNNER_TEMP/pr-body.md" --branch "$PR_BRANCH"
