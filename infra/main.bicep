@@ -111,9 +111,48 @@ resource environmentLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-previ
   }
 }
 
+// The prompt store (task 0007): Azure Table Storage, reached only with the container
+// app's managed identity. Shared-key access is off, so no account key or connection
+// string can be used, and none is stored anywhere.
+var promptTableName = 'prompts' // must match PROMPT_TABLE_NAME in src/features/prompt-admin/table-backend.ts
+// Storage Table Data Contributor: read and write table entities, nothing else.
+var tableDataContributorRole = '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3'
+
+resource storage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  name: 'stmaestro${uniqueString(resourceGroup().id)}'
+  location: location
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    accessTier: 'Hot'
+    allowSharedKeyAccess: false
+    defaultToOAuthAuthentication: true
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2025-01-01' = {
+  parent: storage
+  name: 'default'
+}
+
+resource promptTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2025-01-01' = {
+  parent: tableService
+  name: promptTableName
+}
+
 resource app 'Microsoft.App/containerApps@2026-01-01' = {
   name: appName
   location: location
+  // Its own identity, for the prompt store. DefaultAzureCredential picks it up.
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
@@ -139,6 +178,17 @@ resource app 'Microsoft.App/containerApps@2026-01-01' = {
         {
           name: 'web'
           image: '${imageRepository}:${imageTag}'
+          env: [
+            {
+              name: 'PROMPT_STORE'
+              value: 'table'
+            }
+            {
+              // Built from the name, not reference(), so what-if stays clean.
+              name: 'PROMPT_TABLE_ENDPOINT'
+              value: 'https://${storage.name}.table.${az.environment().suffixes.storage}'
+            }
+          ]
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
@@ -240,5 +290,17 @@ resource auth 'Microsoft.App/containerApps/authConfigs@2026-01-01' = {
   }
 }
 
+// The app may read and write entities in the prompt store's account, and nothing else.
+resource promptStoreAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storage
+  name: guid(storage.id, app.id, tableDataContributorRole)
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', tableDataContributorRole)
+    principalId: app.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
 output url string = 'https://${app.properties.configuration.ingress.fqdn}'
 output appName string = app.name
+output promptStorageAccount string = storage.name

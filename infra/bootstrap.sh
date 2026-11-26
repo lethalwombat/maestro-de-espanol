@@ -2,11 +2,13 @@
 # One-time (and re-runnable) setup for deploying to Azure. See docs/deployment.md.
 #
 # Creates, or checks and leaves alone when already right:
-#   0. the resource providers the template needs (Microsoft.App, Microsoft.OperationalInsights)
+#   0. the resource providers the template needs (Microsoft.App, Microsoft.OperationalInsights,
+#      Microsoft.Storage)
 #   1. the app's resource group and, separately, the deployment identity's (East US)
 #   2. the deployment identity: a user-assigned managed identity with a GitHub OIDC
-#      federated credential for this repository's main branch, and Contributor on
-#      the resource group only
+#      federated credential for this repository's main branch, Contributor on the
+#      resource group only, and Role Based Access Control Administrator there, limited
+#      by a condition to assigning Storage Table Data Contributor to service principals
 #   3. the Entra app registration for sign-in: single tenant, ID tokens, assignment
 #      required, with you (the signed-in user) as the only assigned user, and the
 #      container app's callback URL once the app exists (run this again after the
@@ -32,6 +34,8 @@ SIGN_IN_APP="Maestro de Español (sign-in)"
 GITHUB_OIDC_ISSUER="https://token.actions.githubusercontent.com"
 OIDC_AUDIENCE="api://AzureADTokenExchange"
 DEFAULT_ACCESS_ROLE="00000000-0000-0000-0000-000000000000"
+RBAC_ADMIN_ROLE="f58310d9-a9f6-439a-9e8d-f62e7b41a168"   # Role Based Access Control Administrator
+TABLE_CONTRIBUTOR_ROLE="0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3" # Storage Table Data Contributor
 GRAPH="https://graph.microsoft.com/v1.0"
 
 changes=0
@@ -62,7 +66,7 @@ echo "Subscription: $(jq -r .name <<<"$account") ($active_id), tenant $TENANT_ID
 
 # Resource providers the template uses. Registering them is a subscription-level
 # action the resource-group-scoped deployment identity can't do, so it happens here.
-for namespace in Microsoft.App Microsoft.OperationalInsights; do
+for namespace in Microsoft.App Microsoft.OperationalInsights Microsoft.Storage; do
   if [[ "$(az provider show --namespace "$namespace" --query registrationState --output tsv)" == "Registered" ]]; then
     unchanged "resource provider $namespace registered"
   else
@@ -131,6 +135,23 @@ if [[ "$assigned" == "0" ]]; then
   changed + "role Contributor for $DEPLOY_IDENTITY on $RESOURCE_GROUP"
 else
   unchanged "role Contributor for $DEPLOY_IDENTITY on $RESOURCE_GROUP"
+fi
+
+# The template assigns the container app's managed identity Storage Table Data
+# Contributor on the prompt store, and Contributor can't create role assignments.
+# This grants exactly that: the condition lets the deployment identity create or
+# delete assignments of that one role, to service principals, and nothing else.
+RBAC_CONDITION="((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$TABLE_CONTRIBUTOR_ROLE} AND @Request[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'ServicePrincipal'})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$TABLE_CONTRIBUTOR_ROLE} AND @Resource[Microsoft.Authorization/roleAssignments:PrincipalType] ForAnyOfAnyValues:StringEqualsIgnoreCase {'ServicePrincipal'}))"
+rbac="$(az role assignment list --assignee "$DEPLOY_PRINCIPAL_ID" --role "$RBAC_ADMIN_ROLE" --scope "$RG_ID" \
+  --query "[?scope=='$RG_ID'] | [0]" --output json)"
+if [[ -z "$rbac" || "$rbac" == "null" ]]; then
+  az role assignment create --assignee-object-id "$DEPLOY_PRINCIPAL_ID" --assignee-principal-type ServicePrincipal \
+    --role "$RBAC_ADMIN_ROLE" --scope "$RG_ID" --condition "$RBAC_CONDITION" --condition-version 2.0 --output none
+  changed + "role Role Based Access Control Administrator (Storage Table Data Contributor only) for $DEPLOY_IDENTITY on $RESOURCE_GROUP"
+elif [[ "$(jq -r .condition <<<"$rbac" | tr -d '[:space:]')" != "$(tr -d '[:space:]' <<<"$RBAC_CONDITION")" ]]; then
+  fail "$DEPLOY_IDENTITY holds Role Based Access Control Administrator on $RESOURCE_GROUP with a different condition. Remove that assignment (az role assignment delete --ids $(jq -r .id <<<"$rbac")) and run this again."
+else
+  unchanged "role Role Based Access Control Administrator (Storage Table Data Contributor only) for $DEPLOY_IDENTITY on $RESOURCE_GROUP"
 fi
 
 # --- 3. Sign-in app registration ----------------------------------------------------
