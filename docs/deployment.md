@@ -41,7 +41,7 @@ You need `az` signed in as the owner, `gh` signed in with admin rights on the re
    AZURE_SUBSCRIPTION_ID=<personal subscription id> infra/bootstrap.sh
    ```
 
-   This creates the resource group, the deployment identity with its federated credential (`repo:lethalwombat/maestro-de-espanol:ref:refs/heads/main`) and Contributor role on the resource group only, and the sign-in app registration with you assigned. It also sets the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AUTH_CLIENT_ID` and `OWNER_OBJECT_ID`.
+   This registers the `Microsoft.App` and `Microsoft.OperationalInsights` resource providers (a subscription-level step the deployment identity isn't allowed to do), then creates the resource group, the deployment identity with its federated credential (`repo:lethalwombat/maestro-de-espanol:ref:refs/heads/main`) and Contributor role on the resource group only, and the sign-in app registration with you assigned. It also sets the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AUTH_CLIENT_ID` and `OWNER_OBJECT_ID`.
 
 2. Merge to `main`. The first deploy creates the Log Analytics workspace, the environment and the container app.
 3. The first image push creates the GHCR package as **private**, and the deploy stops at "Check the image can be pulled anonymously" with a link. Open it, go to Package settings, Danger Zone, Change visibility, and choose **Public**. Then re-run the failed deploy. This is needed once only.

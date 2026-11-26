@@ -2,6 +2,7 @@
 # One-time (and re-runnable) setup for deploying to Azure. See docs/deployment.md.
 #
 # Creates, or checks and leaves alone when already right:
+#   0. the resource providers the template needs (Microsoft.App, Microsoft.OperationalInsights)
 #   1. the resource group (East US)
 #   2. the deployment identity: a user-assigned managed identity with a GitHub OIDC
 #      federated credential for this repository's main branch, and Contributor on
@@ -55,6 +56,17 @@ active_id="$(jq -r .id <<<"$account")"
 TENANT_ID="$(jq -r .tenantId <<<"$account")"
 REPO="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 echo "Subscription: $(jq -r .name <<<"$account") ($active_id), tenant $TENANT_ID, repository $REPO"
+
+# Resource providers the template uses. Registering them is a subscription-level
+# action the resource-group-scoped deployment identity can't do, so it happens here.
+for namespace in Microsoft.App Microsoft.OperationalInsights; do
+  if [[ "$(az provider show --namespace "$namespace" --query registrationState --output tsv)" == "Registered" ]]; then
+    unchanged "resource provider $namespace registered"
+  else
+    az provider register --namespace "$namespace" --wait --output none
+    changed + "resource provider $namespace registered"
+  fi
+done
 
 # --- 1. Resource group --------------------------------------------------------------
 if rg_location="$(az group show --name "$RESOURCE_GROUP" --query location --output tsv 2>/dev/null)"; then

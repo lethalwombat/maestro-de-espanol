@@ -71,6 +71,12 @@ status: in-progress
 - 2026-11-26: AC12, script. `bootstrap.sh` passes shellcheck and `bash -n` under macOS bash 3.2 (I replaced `mapfile`). The subscription guard refuses with no `AZURE_SUBSCRIPTION_ID` (exit 1) and refuses when az is on another subscription (exit 1; az is currently on the work subscription). It hasn't run against Azure yet.
 - 2026-11-26: Cost lookup (Azure Retail Prices API). Container Apps consumption is $0.000024 per vCPU-s and $0.000003 per GiB-s, and the free grant is 180k vCPU-s, 360k GiB-s and 2M requests per subscription. Log Analytics is $2.30/GB, with 5 GB/month free per billing account and 31 days of retention included. Open question: an "Environment Management Hour" meter at $0.10/h, effective 2026-09-01, may or may not apply to a Consumption-only environment. `docs/deployment.md` says so, and it gets confirmed in Cost Management after the first deploy.
 - 2026-11-26: `npm run verify` passes (tasks, format, typecheck, lint, unit, e2e).
+- 2026-11-26: The owner signed in to the personal subscription `pay-as-you-go` (152440e2-…a4ca, tenant b1b4e555-…3890, which isn't the work tenant) and confirmed the bootstrap run.
+  - Run 1: `Done: 14 changes.`, covering the resource group, identity, federated credential, Contributor role, app registration, service principal, assignment required, owner assignment and 6 variables. The callback was skipped because the container app doesn't exist yet.
+  - Run 2: every line `=`, `Done: 0 changes.`, exit 0.
+- 2026-11-26: AC9 check. `az role assignment list --assignee <deploy identity> --all` returns only `Contributor` on `/subscriptions/…/resourceGroups/rg-maestro-de-espanol`. `gh secret list` is empty. The sign-in app is `AzureADMyOrg` with ID tokens on, access tokens off, 0 secrets and 0 certificates, and its service principal has `appRoleAssignmentRequired: True`.
+- 2026-11-26: A pre-merge `what-if` (read-only, owner login) shows Create ×4 and Ignore ×1 (the deploy identity, which isn't in the template), so ARM accepts the template.
+- 2026-11-26: Surprise: `Microsoft.App` and `Microsoft.OperationalInsights` were `NotRegistered` in the fresh subscription, and the RG-scoped deploy identity can't register providers. I added an idempotent provider step to `bootstrap.sh`. Run 3: `+` for both providers, `Done: 2 changes.` Run 4: `Done: 0 changes.`, exit 0.
 
 ## Discovered (out of scope)
 
