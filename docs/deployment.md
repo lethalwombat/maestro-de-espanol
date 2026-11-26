@@ -28,6 +28,19 @@ Entra ID: app registration "Maestro de Español (sign-in)", assignment required,
 | Deploy                 | `.github/workflows/deploy.yml`                                       | Signs in with GitHub OIDC (a federated credential on the deployment identity). No Azure secret or password is stored in GitHub, only identifiers as repository variables.                                                                                                                                          |
 | Claude                 | not configured on Azure                                              | There is no Claude credential in Azure yet, so checking a sentence returns the friendly "couldn't check that sentence" message (502). A later task adds a credential.                                                                                                                                              |
 
+### What an anonymous request gets
+
+Easy Auth refuses every anonymous request except `/api/health` before it reaches the app. It decides how to refuse from the request's `User-Agent`:
+
+| Request                                                               | Response                                       |
+| --------------------------------------------------------------------- | ---------------------------------------------- |
+| A browser (`Mozilla/…` User-Agent), any path, any method              | `302` to Microsoft sign-in                     |
+| A browser request with `X-Requested-With: XMLHttpRequest`             | `403`                                          |
+| Anything else (curl, scripts, API clients, an invalid `Bearer` token) | `401` with a `WWW-Authenticate: Bearer` header |
+| `GET /api/health`, from anyone                                        | `200`                                          |
+
+A Microsoft account other than the owner's is stopped at sign-in: accounts from other tenants aren't in this single-tenant directory, and unassigned members get Entra's "not assigned to a role for the application" error (AADSTS50105).
+
 ## One-time setup (bootstrap)
 
 You need `az` signed in as the owner, `gh` signed in with admin rights on the repository, and `jq`. `infra/bootstrap.sh` refuses to run unless the active subscription is the one you name, so it can't land in the wrong one.

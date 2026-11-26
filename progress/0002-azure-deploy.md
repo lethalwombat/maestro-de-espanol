@@ -77,6 +77,21 @@ status: in-progress
 - 2026-11-26: AC9 check. `az role assignment list --assignee <deploy identity> --all` returns only `Contributor` on `/subscriptions/…/resourceGroups/rg-maestro-de-espanol`. `gh secret list` is empty. The sign-in app is `AzureADMyOrg` with ID tokens on, access tokens off, 0 secrets and 0 certificates, and its service principal has `appRoleAssignmentRequired: True`.
 - 2026-11-26: A pre-merge `what-if` (read-only, owner login) shows Create ×4 and Ignore ×1 (the deploy identity, which isn't in the template), so ARM accepts the template.
 - 2026-11-26: Surprise: `Microsoft.App` and `Microsoft.OperationalInsights` were `NotRegistered` in the fresh subscription, and the RG-scoped deploy identity can't register providers. I added an idempotent provider step to `bootstrap.sh`. Run 3: `+` for both providers, `Done: 2 changes.` Run 4: `Done: 0 changes.`, exit 0.
+- 2026-11-26: Part 1 merged (PR #2, `3e3f0aa`). CI on `main` passed and Deploy started via `workflow_run` (run 45770939641).
+  - Attempt 1: the image was built and pushed, and it was already publicly pullable (no visibility step needed). Then `azure/login` failed with `AADSTS700213: No matching federated identity record found for presented assertion subject 'repo:lethalwombat@84167672/maestro-de-espanol@1472674168:ref:refs/heads/main'`. The repo's OIDC tokens use immutable subjects (`gh api repos/…/actions/oidc/customization/sub` → `use_immutable_subject: true`).
+  - Fix: bootstrap reads `sub_claim_prefix` from that API. Then 1 change (`~ federated credential`), then 0.
+  - Attempt 2 succeeded. `wait-for-commit.sh` logged `<no answer>` twice, then `Live: https://maestro-de-espanol.orangewave-6ff96f53.eastus.azurecontainerapps.io/api/health reports commit 3e3f0aa…`.
+- 2026-11-26: Bootstrap after the first deploy hit `uris[@]: unbound variable` (bash 3.2 with `set -u` on an empty array; this code path had never run). Fixed. Then `+ sign-in callback https://…/.auth/login/aad/callback`, 1 change, then 0 changes.
+- 2026-11-26: AC6 probes (anonymous, live).
+  - `GET /` with browser headers: `302` to `login.microsoftonline.com/<tenant>/oauth2/v2.0/authorize?response_type=id_token…&response_mode=form_post`.
+  - `POST /api/feedback` without a browser User-Agent (curl default, `python-requests`, or with a bad bearer token): `401` with `WWW-Authenticate: Bearer`.
+  - `POST /api/feedback` with a browser UA (`Mozilla/5.0`): `302` to sign-in. With a browser UA plus `X-Requested-With: XMLHttpRequest`: `403`.
+  - `GET /api/health`: `200`.
+  - So Easy Auth picks redirect vs 401 by User-Agent. The app's own form `fetch` would get a 302. None of these reach the app.
+- 2026-11-26: AC2, first what-if after the deploy. 3 modifies, all noise: unstated server defaults (`exposedPort`, `maxInactiveRevisions`, `cooldownPeriod`, `pollingInterval`, `peerAuthentication`, `peerTrafficConfiguration`, `publicNetworkAccess`, `isAutoProvisioned`), probe order (Azure stores Liveness, Readiness, Startup), and `customerId` shown as an unresolved `reference()`.
+  - Fix: state the defaults, reorder the probes, and switch the environment to `destination: 'azure-monitor'` plus a `diagnosticSettings` resource that names the workspace by resource id (no `reference()`, no shared key).
+  - what-if now shows only the intended changes: `+ diagnosticSettings/to-log-analytics`, `~ appLogsConfiguration.destination log-analytics => azure-monitor`, and `=` for the app, auth config and workspace. To be redeployed and rechecked.
+- 2026-11-26: AC3, live. The image config from GHCR (anonymous) has `User: node`, `ExposedPorts: 3000/tcp`, `Cmd: node server.js`, `PORT=3000`, `HOSTNAME=0.0.0.0` and `APP_COMMIT_SHA=3e3f0aa…`. `az containerapp show` reports `targetPort: 3000`, `external: true`, `minReplicas: 0`, `maxReplicas: 1`, `cpu 0.25`, `memory 0.5Gi`, `secrets: null` and `registries: null`.
 
 ## Discovered (out of scope)
 
