@@ -1,6 +1,6 @@
 ---
 task: "0005"
-status: in-progress
+status: done
 ---
 
 ## Plan
@@ -70,6 +70,21 @@ None open. See the log for the spinner decision.
   All checks passed.
   ```
 
+- 2026-11-26: Reviewer: (1) the theme toggle's checked state reached only about 1.1–1.2:1 (fill) and 2.35:1 (label) against the track, below WCAG 1.4.11, and no contrast row covered it; a guide row also mislabelled the selected label's background. Fixed: a test first (seen failing), then a 1 px `--color-border-strong` ring on the checked option (about 4.1:1 light, 3.3:1 dark against the track), a new contrast pair so `contrast.test.ts` guards it, and the row relabelled. (2) The e2e specs were written after the restyle and seen failing only afterwards, against earlier commits (see above). Agreed: the DoD's test-first item is ticked with that caveat. No scope gaps.
+- 2026-11-26: `npm run verify` after the review fix:
+
+  ```text
+  harness check --full:
+    ✔ tasks (0.1s)
+    ✔ format (2.1s)
+    ✔ typecheck (2.9s)
+    ✔ lint (4.7s)
+    ✔ unit (9.6s)
+    ✔ e2e (7.6s)
+
+  All checks passed.
+  ```
+
 ## Discovered (out of scope)
 
 - `playwright.config.ts` (human-owned) starts the app with `next start`, which warns that it doesn't work with `output: "standalone"` and suggests `node .next/standalone/server.js`. e2e passes, but it isn't testing the server the Dockerfile ships.
@@ -78,33 +93,106 @@ None open. See the log for the spinner decision.
 
 ## Acceptance evidence
 
-- AC1:
-- AC2:
-- AC3:
-- AC4:
-- AC5:
-- AC6:
-- AC7:
-- AC8:
-- AC9:
-- AC10:
-- AC11:
-- AC12:
-- AC13:
-- AC14:
-- AC15:
-- AC16:
-- AC17:
-- AC18:
-- AC19:
-- AC20:
-- AC21:
-- AC22:
+- AC1: `src/styles/design-guide.test.ts` › "has a section on %s" (12 sections) and "covers the %s and its states" (button, text area, card, status and alert messages, spinner, loading placeholder, theme toggle).
+- AC2: `src/styles/design-guide.test.ts` › "README links to docs/design.md" and "CLAUDE.md conventions say UI work follows the guide, and where tokens and components live".
+- AC3: `src/styles/design-guide.test.ts` › "Tailwind runs through @tailwindcss/postcss" and "defines theme tokens only in tokens.css"; `e2e/design-system.spec.ts` › "Tailwind generates the stylesheet from the tokens".
+- AC4: `e2e/design-system.spec.ts` › "the production stylesheet defines none of Tailwind's default colours" (seen failing with `--color-*: initial` removed).
+- AC5: `src/styles/design-guide.test.ts` › "keeps globals.css to the imports and base element styles" and "no longer uses the hand-written page classes"; components in `src/components/ui/` covered by `ui.test.tsx` and `theme-toggle.test.tsx`.
+- AC6: `src/styles/colour-literals.test.ts` › "catches %s" (CSS hex, short hex, Tailwind arbitrary value, inline style prop, rgba, SVG attribute, hsl, oklab) and "has no colour literal under src/ outside tokens.css and tests".
+- AC7: `src/styles/contrast.test.ts` › "meet WCAG contrast in the light theme" / "in the dark theme", over the 23 pairs in the guide's Contrast pairs table (4.5:1 text, 3:1 non-text).
+- AC8: `src/styles/token-sync.test.ts` › "documents every token the file defines", "defines every token the guide lists", "gives each colour token the same light and dark values in both".
+- AC9: `e2e/design-system.spec.ts` › "the page renders in self-hosted Inter and only talks to its own origin" (a `.woff2` from `/_next/static/media/`, body font Inter, no other origin).
+- AC10: `src/features/sentence-feedback/feedback-form.test.tsx` and `e2e/sentence-feedback.spec.ts` unchanged (`git diff main -- <both files>` is empty) and passing in `npm run verify`.
+- AC11: `src/features/sentence-feedback/feedback-states.test.tsx` › "shows a spinner and a busy placeholder while checking, and drops both on a result", "drops the loading state when an error arrives"; e2e `design-system.spec.ts` › "while checking, the button shows a spinner and a busy placeholder holds the result area", "the loading state also goes when an error arrives".
+- AC12: `feedback-states.test.tsx` › "strikes each wrong fragment in the danger colour…", "gives %s its own message and icon", "gives a failure an alert with an alert icon"; `ui.test.tsx` › "a %s message has role %s and a hidden %s icon"; e2e › "corrections strike the wrong fragment and show the correction in its own colour", "%s gets its own message with a hidden icon".
+- AC13: `e2e/theme.spec.ts` › "with no saved theme, an OS set to light/dark gets the light/dark tokens", "changing the OS setting switches the theme without a reload".
+- AC14: `e2e/theme.spec.ts` › "is a keyboard-operable radio group named Theme", "Dark and Light override the OS at once and survive a reload", "System goes back to following the OS"; `theme-toggle.test.tsx` › "is a radio group named Theme with System, Light and Dark", "applies a choice at once and checks it".
+- AC15: `e2e/theme.spec.ts` › "a saved Dark choice applies before React loads" (JS chunks aborted, OS light, dark canvas); `theme-toggle.test.tsx` › "applies a saved Light or Dark choice to <html>".
+- AC16: `e2e/theme.spec.ts` › "a throwing localStorage leaves the page on the OS theme, the toggle still works, and nothing is logged", "an unknown saved value leaves the page on the OS theme"; `theme-toggle.test.tsx` › "still switches the theme for the visit when storage throws", "treats an unknown saved value as System".
+- AC17: `e2e/design-system.spec.ts` › "the result card and corrections rise in, one after another, and buttons respond to a press", "every duration and easing comes from the motion tokens and lasts at most 300 ms"; `src/styles/motion.test.ts` › "cap one-shot durations at 300 ms; only the spinner's turn is exempt" and "takes every duration and easing under src/ from the motion tokens". Spinner exemption per the logged user decision.
+- AC18: `e2e/design-system.spec.ts` › "nothing moves, and the loading state still says Checking…".
+- AC19: `e2e/layout.spec.ts` › "at 320/390/768/1280 px › nothing scrolls sideways and every control is fully visible", "at 1280 px › the content column is no wider than the guide's content width".
+- AC20: `e2e/layout.spec.ts` › "at 320/390/768/1280 px › the submit button and each theme option are at least 44 × 44 px".
+- AC21: `e2e/layout.spec.ts` › "tabbing shows a focus ring at least 2 px thick on each control in the light theme" / "dark theme".
+- AC22: `e2e/accessibility.spec.ts` › "axe finds no WCAG 2.2 A or AA violations: <state>, <theme> theme" for empty, loading, corrected, correct, not Spanish and error, in light and dark (12 tests).
 
 ## Definition of Done
 
-(Filled in by /finish-task.)
+- [x] `npm run verify` passes (format, typecheck, lint, unit tests with coverage thresholds, production build, e2e), and its summary is pasted in the progress log.
+- [x] If a prompt, an output schema or anything in `src/lib/llm/` changed, `npm run evals` meets the suite threshold and the summary is in the progress log. — N/A: no prompt, schema or `src/lib/llm/` changes.
+- [x] Every acceptance criterion has evidence under "Acceptance evidence": the test that proves it, or the command and output for what a test can't show.
+- [x] New behaviour was written test-first: each new test was seen failing before the code that makes it pass. — Unit tests were written first and seen failing. The e2e specs were written after the restyle, then seen failing against earlier commits in a temporary worktree (see log).
+- [x] User-visible behaviour is covered by an e2e test, or the progress file says why not.
+- [x] The diff serves this task's acceptance criteria and nothing else. Unrelated findings are listed under "Discovered", not fixed.
+- [x] No test, assertion, lint rule or threshold was removed or loosened, and there is no new `eslint-disable`, `@ts-expect-error`, `.skip` or `.only`.
+- [x] No new dependency, unless the task needed one and the user approved the install.
+- [x] No secrets, API keys or `.env` contents in code, fixtures, logs or commits.
+- [x] The `reviewer` subagent reviewed the diff against the spec, and every correctness gap it found is fixed or answered in the progress file.
+- [x] Docs are updated wherever behaviour, commands or setup changed.
+- [x] The work is committed on the task branch, with commit messages in the format in `CONTRIBUTING.md`.
+- [x] The pull request title and body are drafted in the progress file and pass `npm run pr:check`.
 
 ## Pull request
 
-(Drafted by /finish-task: the title, then the body in a fenced `markdown` block.)
+feat(design): add a design system and restyle the home page (task 0005)
+
+````markdown
+## Task
+
+0005 — tasks/0005-design-system.md (part 1 of 1)
+
+## Summary
+
+Adds a design system and restyles the home page with it, so every screen has one reference to follow.
+
+- **Guide:** `docs/design.md` covers principles, colour, typography, spacing, shape, motion, icons, components and their states, theming, responsive behaviour, accessibility, and how to add a token or component.
+- **Tokens:** Tailwind CSS v4 through `@tailwindcss/postcss`, with every token in `src/styles/tokens.css`. The default palette is switched off. Semantic colours are `light-dark()` pairs (slate neutrals, an indigo accent, emerald and rose), so components need no `dark:` variants.
+- **Components:** `src/components/ui/` holds Button (with loading), TextArea, Card, Message (success, info, danger, with Lucide icons), Spinner, Skeleton and ThemeToggle. `globals.css` keeps only imports and base styles.
+- **Theme:** follows the OS by default. A System/Light/Dark radio group saves the choice in `localStorage`, and an inline script applies it before React loads. Storage failures fall back to the OS.
+- **Font:** Inter, self-hosted with `next/font/google`.
+- **Guards:** unit tests fail on colour literals under `src/`, on WCAG contrast shortfalls for every pair the guide lists, on drift between the guide's token tables and `tokens.css`, and on durations or easings outside the motion tokens.
+
+No copy, roles or accessible names changed. No prompt, schema, API or `src/lib/llm/` change, so no eval run.
+
+New dependencies, as approved in the spec: `tailwindcss`, `@tailwindcss/postcss`, `postcss`, `lucide-react`, `@axe-core/playwright`. Decision logged in the progress file: the 300 ms motion cap covers one-shot motion; the looping spinner uses its own `--duration-spin` token.
+
+## Acceptance criteria
+
+- AC1–AC2: `src/styles/design-guide.test.ts` (sections, component states, README and CLAUDE.md pointers).
+- AC3, AC5: `design-guide.test.ts` (PostCSS plugin, tokens only in `tokens.css`, slim `globals.css`, old classes gone); e2e "Tailwind generates the stylesheet from the tokens".
+- AC4: e2e "the production stylesheet defines none of Tailwind's default colours".
+- AC6: `src/styles/colour-literals.test.ts` (fixtures for CSS, arbitrary value, inline style, SVG attribute; repo scan).
+- AC7: `src/styles/contrast.test.ts` (23 documented pairs, both themes).
+- AC8: `src/styles/token-sync.test.ts`.
+- AC9: e2e "the page renders in self-hosted Inter and only talks to its own origin".
+- AC10: `feedback-form.test.tsx` and `e2e/sentence-feedback.spec.ts` unchanged and passing.
+- AC11–AC12: `feedback-states.test.tsx`, `ui.test.tsx`, and the e2e "states" tests.
+- AC13–AC16: `e2e/theme.spec.ts` (OS following, live switch, keyboard radio group, persistence, before-React with JS blocked, broken storage) and `theme-toggle.test.tsx`.
+- AC17–AC18: e2e "motion" and "reduced motion" tests; `src/styles/motion.test.ts`.
+- AC19–AC21: `e2e/layout.spec.ts` at 320, 390, 768 and 1280 px.
+- AC22: `e2e/accessibility.spec.ts`, axe in 6 states × 2 themes.
+
+## Verification
+
+```text
+harness check --full:
+  ✔ tasks (0.1s)
+  ✔ format (2.1s)
+  ✔ typecheck (2.9s)
+  ✔ lint (4.7s)
+  ✔ unit (9.6s)
+  ✔ e2e (7.6s)
+
+All checks passed.
+```
+
+The e2e specs were also run against earlier commits in a temporary worktree to confirm they fail without the feature. The reviewer subagent found one gap, the theme toggle's checked state below 3:1, which is fixed and now guarded by the contrast test.
+
+## Discovered
+
+- `playwright.config.ts` (human-owned) starts the app with `next start`, which warns that it doesn't work with `output: "standalone"`. e2e passes, but it doesn't test the server the Dockerfile ships.
+- `next/font/google` with `subsets: ["latin"]` still emits `@font-face` rules for Inter's other subsets. Only Latin is preloaded, so it's harmless but more CSS than needed.
+- `npm install` warns that `fsevents` has install scripts not covered by `allowScripts`.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+````
