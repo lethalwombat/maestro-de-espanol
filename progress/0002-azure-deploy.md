@@ -196,7 +196,8 @@ status: done
 - [x] No secrets, API keys or `.env` contents in code, fixtures, logs or commits. The repo holds identifiers only, `.dockerignore` excludes `.env*`, and there are no GitHub secrets.
 - [x] The `reviewer` subagent reviewed the diff against the spec, and every correctness gap it found is fixed or answered in the progress file.
 - [x] Docs are updated wherever behaviour, commands or setup changed.
-- [x] The work is committed on the task branch with commit messages in the format in `CONTRIBUTING.md`. Part-2 commits made after task 0003 pass the `commit-msg` hook. The four earlier ones predate the rule, and the squash merge keeps only the PR title.
+- [x] The work is committed on the task branch, with commit messages in the format in `CONTRIBUTING.md`. Part-2 commits made after task 0003 pass the `commit-msg` hook. The four earlier ones predate the rule, and the squash merge keeps only the PR title.
+- [x] The pull request title and body are drafted in the progress file and pass `npm run pr:check`. `pr:check` passed for the title, branch, title-to-branch match and body.
 
 ## Pull request
 
