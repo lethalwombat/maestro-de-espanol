@@ -3,7 +3,7 @@
 #
 # Creates, or checks and leaves alone when already right:
 #   0. the resource providers the template needs (Microsoft.App, Microsoft.OperationalInsights)
-#   1. the resource group (East US)
+#   1. the app's resource group and, separately, the deployment identity's (East US)
 #   2. the deployment identity: a user-assigned managed identity with a GitHub OIDC
 #      federated credential for this repository's main branch, and Contributor on
 #      the resource group only
@@ -23,6 +23,9 @@ set -euo pipefail
 LOCATION="eastus"
 RESOURCE_GROUP="rg-maestro-de-espanol"
 CONTAINER_APP="maestro-de-espanol" # must match appName in infra/main.bicep
+# The identity lives outside the app's resource group, where it holds no role, so a
+# deploy can't change the identity's own federated credentials.
+IDENTITY_RESOURCE_GROUP="rg-maestro-de-espanol-deploy"
 DEPLOY_IDENTITY="id-maestro-de-espanol-deploy"
 FEDERATED_CREDENTIAL="github-main"
 SIGN_IN_APP="Maestro de Español (sign-in)"
@@ -68,23 +71,28 @@ for namespace in Microsoft.App Microsoft.OperationalInsights; do
   fi
 done
 
-# --- 1. Resource group --------------------------------------------------------------
-if rg_location="$(az group show --name "$RESOURCE_GROUP" --query location --output tsv 2>/dev/null)"; then
-  [[ "$rg_location" == "$LOCATION" ]] ||
-    fail "resource group $RESOURCE_GROUP exists in $rg_location, not $LOCATION."
-  unchanged "resource group $RESOURCE_GROUP ($LOCATION)"
-else
-  az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
-  changed + "resource group $RESOURCE_GROUP ($LOCATION)"
-fi
+# --- 1. Resource groups -------------------------------------------------------------
+for group in "$RESOURCE_GROUP" "$IDENTITY_RESOURCE_GROUP"; do
+  if rg_location="$(az group show --name "$group" --query location --output tsv 2>/dev/null)"; then
+    [[ "$rg_location" == "$LOCATION" ]] ||
+      fail "resource group $group exists in $rg_location, not $LOCATION."
+    unchanged "resource group $group ($LOCATION)"
+  else
+    az group create --name "$group" --location "$LOCATION" --output none
+    changed + "resource group $group ($LOCATION)"
+  fi
+done
 RG_ID="$(az group show --name "$RESOURCE_GROUP" --query id --output tsv)"
 
 # --- 2. Deployment identity ---------------------------------------------------------
-if ! identity="$(az identity show --name "$DEPLOY_IDENTITY" --resource-group "$RESOURCE_GROUP" --output json 2>/dev/null)"; then
-  identity="$(az identity create --name "$DEPLOY_IDENTITY" --resource-group "$RESOURCE_GROUP" --location "$LOCATION" --output json)"
+if ! identity="$(az identity show --name "$DEPLOY_IDENTITY" --resource-group "$IDENTITY_RESOURCE_GROUP" --output json 2>/dev/null)"; then
+  identity="$(az identity create --name "$DEPLOY_IDENTITY" --resource-group "$IDENTITY_RESOURCE_GROUP" --location "$LOCATION" --output json)"
   changed + "deployment identity $DEPLOY_IDENTITY"
 else
   unchanged "deployment identity $DEPLOY_IDENTITY"
+fi
+if az identity show --name "$DEPLOY_IDENTITY" --resource-group "$RESOURCE_GROUP" --output none 2>/dev/null; then
+  echo "! an older $DEPLOY_IDENTITY exists inside $RESOURCE_GROUP, where it could edit itself. Once a deploy works with the new one, remove its role assignments and delete it (docs/deployment.md)."
 fi
 DEPLOY_CLIENT_ID="$(jq -r .clientId <<<"$identity")"
 DEPLOY_PRINCIPAL_ID="$(jq -r .principalId <<<"$identity")"
@@ -97,19 +105,19 @@ oidc="$(gh api "repos/$REPO/actions/oidc/customization/sub")"
 subject="$(jq -r '.sub_claim_prefix // empty' <<<"$oidc")"
 [[ -n "$subject" ]] || subject="repo:${REPO}"
 subject="${subject}:ref:refs/heads/main"
-if fic="$(az identity federated-credential show --name "$FEDERATED_CREDENTIAL" --identity-name "$DEPLOY_IDENTITY" --resource-group "$RESOURCE_GROUP" --output json 2>/dev/null)"; then
+if fic="$(az identity federated-credential show --name "$FEDERATED_CREDENTIAL" --identity-name "$DEPLOY_IDENTITY" --resource-group "$IDENTITY_RESOURCE_GROUP" --output json 2>/dev/null)"; then
   if [[ "$(jq -r .subject <<<"$fic")" == "$subject" && "$(jq -r .issuer <<<"$fic")" == "$GITHUB_OIDC_ISSUER" &&
     "$(jq -r '.audiences | join(",")' <<<"$fic")" == "$OIDC_AUDIENCE" ]]; then
     unchanged "federated credential $FEDERATED_CREDENTIAL ($subject)"
   else
     az identity federated-credential update --name "$FEDERATED_CREDENTIAL" --identity-name "$DEPLOY_IDENTITY" \
-      --resource-group "$RESOURCE_GROUP" --issuer "$GITHUB_OIDC_ISSUER" --subject "$subject" \
+      --resource-group "$IDENTITY_RESOURCE_GROUP" --issuer "$GITHUB_OIDC_ISSUER" --subject "$subject" \
       --audiences "$OIDC_AUDIENCE" --output none
     changed "~" "federated credential $FEDERATED_CREDENTIAL ($subject)"
   fi
 else
   az identity federated-credential create --name "$FEDERATED_CREDENTIAL" --identity-name "$DEPLOY_IDENTITY" \
-    --resource-group "$RESOURCE_GROUP" --issuer "$GITHUB_OIDC_ISSUER" --subject "$subject" \
+    --resource-group "$IDENTITY_RESOURCE_GROUP" --issuer "$GITHUB_OIDC_ISSUER" --subject "$subject" \
     --audiences "$OIDC_AUDIENCE" --output none
   changed + "federated credential $FEDERATED_CREDENTIAL ($subject)"
 fi
