@@ -154,3 +154,17 @@ export function contrastRatio(a: string, b: string): number {
   const [la, lb] = [luminance(a), luminance(b)];
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
+
+// --- Motion ------------------------------------------------------------------
+
+const RAW_MOTION = [
+  /(?<![\w-])duration-(?:\d+|\[[^\]]*\])/g, // duration-300, duration-[250ms]
+  /(?<![\w-])ease-(?:linear|in-out|in|out|\[[^\]]*\])(?![\w-])/g, // ease-in, ease-[...]
+  /(?<![\w.-])\d*\.?\d+m?s\b/g, // 250ms, 0.2s
+  /\bcubic-bezier\(/g,
+];
+
+/** Durations and easings written out instead of taken from the motion tokens. */
+export function findRawMotion(source: string): string[] {
+  return RAW_MOTION.flatMap((pattern) => [...source.matchAll(pattern)].map((match) => match[0]));
+}

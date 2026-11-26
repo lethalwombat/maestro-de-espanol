@@ -26,6 +26,9 @@ const CANNED: Record<string, Canned> = {
   "Me gusta el café.": {
     feedback: { verdict: "correct", corrected: "Me gusta el café.", issues: [] },
   },
+  "Hello there, how are you?": {
+    feedback: { verdict: "not_spanish", corrected: "", issues: [] },
+  },
   "Esta frase provoca un rechazo.": { stop_reason: "refusal" },
 };
 
