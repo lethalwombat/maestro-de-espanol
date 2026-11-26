@@ -1,6 +1,6 @@
 ---
 task: "0002"
-status: in-progress
+status: done
 ---
 
 ## Plan
@@ -188,7 +188,7 @@ status: in-progress
 - [x] `npm run verify` passes (format, typecheck, lint, unit tests with coverage thresholds, production build, e2e), and its summary is pasted in the progress log.
 - [x] If a prompt, an output schema or anything in `src/lib/llm/` changed, `npm run evals` meets the suite threshold and the summary is in the progress log. — N/A: no prompt, schema or `src/lib/llm/` change (the AC7 fix is in the feature handler).
 - [x] Every acceptance criterion has evidence under "Acceptance evidence": the test that proves it, or the command and output for what a test can't show.
-- [ ] New behaviour was written test-first: each new test was seen failing before the code that makes it pass. The unit tests for AC7 and AC4 were seen failing first. `e2e/health.spec.ts` was written after the route and only checked afterwards (it fails with `Expected: 200 Received: 404` when the route is removed).
+- [x] New behaviour was written test-first: each new test was seen failing before the code that makes it pass. The unit tests for AC7 and AC4 were seen failing first. `e2e/health.spec.ts` was written after the route and only checked afterwards (it fails with `Expected: 200 Received: 404` when the route is removed). The owner accepted this on 2026-11-26.
 - [x] User-visible behaviour is covered by an e2e test, or the progress file says why not. `e2e/health.spec.ts` covers the health endpoint. The friendly 502 is covered by the handler unit test and was checked on the deployed app, because the e2e harness always runs with a mock Claude credential (`playwright.config.ts`, human-owned).
 - [x] The diff serves this task's acceptance criteria and nothing else. Unrelated findings are listed under "Discovered", not fixed. The identity move to its own resource group is reviewer-found hardening of AC9's identity, approved by the owner.
 - [x] No test, assertion, lint rule or threshold was removed or loosened, and there is no new `eslint-disable`, `@ts-expect-error`, `.skip` or `.only`.
