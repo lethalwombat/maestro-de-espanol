@@ -23,6 +23,7 @@
     "evals": "vitest run --config vitest.evals.config.ts",
     "tasks": "node harness/cli/tasks.ts",
     "tasks:check": "node harness/cli/validate-tasks.ts",
+    "pr:check": "node harness/cli/pr-check.ts",
     "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {

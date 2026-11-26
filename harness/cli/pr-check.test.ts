@@ -1,7 +1,7 @@
 // Black-box tests for `npm run pr:check` (harness/cli/pr-check.ts), run the
 // way CI's pr-standards job and /finish-task run it.
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -36,6 +36,14 @@ function prCheck(cwd: string, args: string[], input?: string): Run {
 }
 
 describe("pr:check", () => {
+  it("is what `npm run pr:check` runs", () => {
+    const pkg = JSON.parse(
+      readFileSync(resolve(import.meta.dirname, "..", "..", "package.json"), "utf8"),
+    ) as { scripts: Record<string, string> };
+
+    expect(pkg.scripts["pr:check"]).toBe("node harness/cli/pr-check.ts");
+  });
+
   let dir: string;
   let bodyFile: string;
   beforeEach(() => {
