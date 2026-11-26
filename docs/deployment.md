@@ -39,7 +39,7 @@ Easy Auth refuses every anonymous request except `/api/health` before it reaches
 | Anything else (curl, scripts, API clients, an invalid `Bearer` token) | `401` with a `WWW-Authenticate: Bearer` header |
 | `GET /api/health`, from anyone                                        | `200`                                          |
 
-A Microsoft account other than the owner's is stopped at sign-in: accounts from other tenants aren't in this single-tenant directory, and unassigned members get Entra's "not assigned to a role for the application" error (AADSTS50105).
+A Microsoft account other than the owner's is stopped at sign-in. An account from another tenant isn't in this single-tenant directory, and gets AADSTS50020 ("does not exist in tenant"), as tested with a second account. A member of the tenant who isn't assigned to the app should get AADSTS50105 ("not assigned to a role for the application") because assignment is required. Easy Auth's `allowedPrincipals` check would refuse them as well. Neither of those last two has been tested, because the tenant has no second member.
 
 ## One-time setup (bootstrap)
 
@@ -54,10 +54,10 @@ You need `az` signed in as the owner, `gh` signed in with admin rights on the re
    AZURE_SUBSCRIPTION_ID=<personal subscription id> infra/bootstrap.sh
    ```
 
-   This registers the `Microsoft.App` and `Microsoft.OperationalInsights` resource providers (a subscription-level step the deployment identity isn't allowed to do), then creates the resource group, the deployment identity with its federated credential (`repo:lethalwombat/maestro-de-espanol:ref:refs/heads/main`) and Contributor role on the resource group only, and the sign-in app registration with you assigned. It also sets the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AUTH_CLIENT_ID` and `OWNER_OBJECT_ID`.
+   This registers the `Microsoft.App` and `Microsoft.OperationalInsights` resource providers (a subscription-level step the deployment identity isn't allowed to do), then creates the resource group, the deployment identity with its federated credential for `main` (the subject comes from GitHub's OIDC settings for the repository; this repository uses immutable ids, `repo:lethalwombat@84167672/maestro-de-espanol@1472674168:ref:refs/heads/main`) and Contributor role on the resource group only, and the sign-in app registration with you assigned. It also sets the repository variables `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AUTH_CLIENT_ID` and `OWNER_OBJECT_ID`.
 
 2. Merge to `main`. The first deploy creates the Log Analytics workspace, the environment and the container app.
-3. The first image push creates the GHCR package as **private**, and the deploy stops at "Check the image can be pulled anonymously" with a link. Open it, go to Package settings, Danger Zone, Change visibility, and choose **Public**. Then re-run the failed deploy. This is needed once only.
+3. The image has to be publicly pullable. For this repository, the first push created a public package, which inherited the visibility of the public repository. If a package ever comes out private, the deploy stops at "Check the image can be pulled anonymously" with a link: open it, go to Package settings, Danger Zone, Change visibility, choose **Public**, then re-run the failed deploy.
 4. Run `infra/bootstrap.sh` again (same command). It registers the app's sign-in callback (`https://<app hostname>/.auth/login/aad/callback`), which can only be known after the first deploy.
 
 The script is idempotent: each line starts with `=` (already right), `+` (created) or `~` (updated), and a run that finds everything in place ends with `Done: 0 changes.`
@@ -103,7 +103,7 @@ Expected cost is about **$0 a month** for personal use, provided the environment
 
 Worst cases: a replica that never idles costs about $14 a month (0.25 vCPU and 0.5 GiB for 730 hours, minus the free grant). Logs can't exceed the daily cap.
 
-**To confirm after the first deploy.** The price list also has an "Environment Management Hour" meter at $0.10 an hour (about $73 a month), effective 1 September 2026. Microsoft's pricing page lists management fees only under the Dedicated plan, and this environment has no dedicated profile, so it shouldn't apply here. Check Cost Management for the resource group a few days after the first deploy. If the meter shows up, the environment is the cost, and tearing down is the way to stop it.
+**Still to confirm.** Cost Management had no usage data yet on the day of the first deploy (26 November 2026); it lags by up to a day. The price list also has an "Environment Management Hour" meter at $0.10 an hour (about $73 a month), effective 1 September 2026. Microsoft's pricing page lists management fees only under the Dedicated plan, and this environment has no dedicated profile, so it shouldn't apply here. Check Cost Management for the resource group a few days after the first deploy. If the meter shows up, the environment is the cost, and tearing down is the way to stop it.
 
 ## Tearing everything down
 
