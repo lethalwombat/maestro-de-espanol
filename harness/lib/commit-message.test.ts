@@ -46,6 +46,9 @@ describe("commit header (AC1)", () => {
     ["task-id: too short", "docs: rollback steps (task 2)", ["task-id"]],
     ["task-id: wrong word", "docs: rollback steps (Task 0002)", ["task-id"]],
     ["task-id: not at the end", "docs: (task 0002) rollback steps", ["task-id"]],
+    ["task-id: no space before it", "docs: rollback steps(task 0002)", ["task-id"]],
+    ["task-id: two spaces before it", "docs: rollback steps  (task 0002)", ["task-id"]],
+    ["task-id: a tab before it", "docs: rollback steps\t(task 0002)", ["task-id"]],
     // length
     ["length: exactly the limit", `docs: ${"x".repeat(MAX_HEADER_LENGTH - 18)} (task 0002)`, []],
     ["length: one over", `docs: ${"x".repeat(MAX_HEADER_LENGTH - 17)} (task 0002)`, ["length"]],
@@ -276,6 +279,10 @@ describe("what the commit-msg hook decides (AC3)", () => {
   it("checks only the format on a detached HEAD", () => {
     expect(decide("feat: add it (task 0009)\n", null)).toEqual([]);
     expect(decide("add it\n", null)).toEqual(["format"]);
+  });
+
+  it("keeps the header's leading spaces, as git does", () => {
+    expect(decide("  feat: add it (task 0003)\n", "task/0003-x")).toEqual(["format"]);
   });
 
   it("checks the cleaned-up message, not git's comments", () => {

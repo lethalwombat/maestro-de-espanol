@@ -25,4 +25,4 @@ Approach, files likely to change, the first failing test per criterion, risks, o
 
 ## Pull request
 
-(Drafted by /finish-task: the title, then the body in a `~~~~markdown` fence.)
+(Drafted by /finish-task: the title, then the body in a fenced `markdown` block.)

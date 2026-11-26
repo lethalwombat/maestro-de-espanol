@@ -91,6 +91,13 @@ describe(".githooks/commit-msg", () => {
       }
     });
 
+    it("refuses a header with leading spaces, which git would keep", () => {
+      const result = commit(repo, "  feat(harness): add the hook (task 0003)");
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("✖ format: ");
+    });
+
     it("refuses a body that doesn't follow a blank line", () => {
       const result = commit(repo, "fix: handle refusals (task 0003)\nWhy.");
 
@@ -112,7 +119,9 @@ describe(".githooks/commit-msg", () => {
       writeFileSync(join(repo, "notes.txt"), "draft\n");
       git(repo, "add", "notes.txt");
       expect(commit(repo, "docs: add notes (task 0003)").status).toBe(0);
-      expect(attempt(repo, "revert", "--no-edit", "HEAD").status).toBe(0);
+      // git revert itself skips commit-msg; committing its staged revert runs the hook.
+      expect(attempt(repo, "revert", "--no-commit", "HEAD").status).toBe(0);
+      expect(attempt(repo, "commit", "-q", "--no-edit").status).toBe(0);
       expect(lastSubject(repo)).toBe('Revert "docs: add notes (task 0003)"');
 
       git(repo, "switch", "-q", "-c", "side");

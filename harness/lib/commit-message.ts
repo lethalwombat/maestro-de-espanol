@@ -59,7 +59,8 @@ export interface MessageCheck extends HeaderCheck {
 // Lenient on purpose: it parses anything shaped like `type(scope): rest`, so
 // each broken rule gets its own reason instead of one generic "bad format".
 const SHAPE = /^([A-Za-z]+)(?:\(([^()]*)\))?(:\s*)(.*)$/;
-const TASK_SUFFIX = /\s*\(task (\d{4})\)$/;
+// Exactly one space before "(task", unless the subject is empty.
+const TASK_SUFFIX = /(?:^| )\(task (\d{4})\)$/;
 const KEBAB = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const EXEMPTIONS: ReadonlyArray<[RegExp, string]> = [
@@ -108,7 +109,9 @@ export function checkHeader(text: string): HeaderCheck {
   const subject = suffix ? rest.slice(0, suffix.index) : rest;
   if (subject.trim() === "") problem("subject", "the subject is empty: say what the change does");
   else if (subject.endsWith(".")) problem("period", "the subject ends with a period: drop it");
-  if (!suffix) problem("task-id", 'it must end with " (task NNNN)", the four-digit task id');
+  if (!suffix || (subject.trim() !== "" && subject !== subject.trimEnd())) {
+    problem("task-id", 'it must end with " (task NNNN)", one space then the four-digit task id');
+  }
   lengthProblem();
 
   return {
@@ -131,7 +134,7 @@ export function cleanupMessage(raw: string): string {
   return kept
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/^\n+|\n+$/g, ""); // blank lines only: git keeps a header's leading spaces
 }
 
 /** Why a message git generated itself is exempt from the rules, or null. */
