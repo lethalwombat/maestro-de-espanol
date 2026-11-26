@@ -32,12 +32,17 @@ npm run dev                     # http://localhost:3000
 
 How tasks work is described in [tasks/README.md](tasks/README.md), and every guardrail in [docs/harness.md](docs/harness.md).
 
+## Deployment
+
+The app runs on Azure Container Apps, and merging to `main` deploys it once CI passes. The architecture, one-time setup, deploys, rollback, cost and teardown are described in [docs/deployment.md](docs/deployment.md).
+
 ## Layout
 
 ```
 src/app/                 Next.js routes (thin)
 src/features/<feature>/  Feature logic, prompts, schemas, UI and their tests
 src/lib/llm/             The only code that talks to Claude
+infra/                   Bicep for Azure, bootstrap and deploy scripts
 e2e/                     Playwright tests and the mock Claude server they use
 evals/                   LLM eval suites and runner
 harness/                 Guardrail hooks and scripts for Claude Code (tested)
