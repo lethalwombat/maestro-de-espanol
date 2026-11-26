@@ -1,6 +1,6 @@
 ---
 task: "0003"
-status: in-progress
+status: done
 ---
 
 ## Plan
@@ -48,28 +48,112 @@ Changed: `.github/workflows/ci.yml`, `docs/harness.md`, `.claude/skills/start-ta
 - 2026-11-26: The owner approved the `package.json`, `CLAUDE.md` and `docs/definition-of-done.md` edits as previewed, and they're committed in 0f508ee. The `pr:check` wiring test ("is what `npm run pr:check` runs") was written after the script, so it was never seen failing; `git show HEAD~1:package.json` has no `pr:check`.
 - 2026-11-26: Every `CONTRIBUTING.md` example, run through `checkHeader()`/`evaluateCommit()`: the four good headers pass, and each refused one fails on exactly the rule its row names (format, type, scope, separator, period, task-id ×2, length at 84, task-match).
 
+- 2026-11-26: Review (a general-purpose subagent given `.claude/agents/reviewer.md`'s instructions, read-only by instruction because the project agent isn't loaded unlocked). It found and I fixed, tests first where code changed:
+  - Prettier rewrites a `~~~~markdown` fence to backticks, so the skill's `awk` found no body in a saved progress file. The extraction now accepts any backtick or tilde `markdown` fence and closes on the same fence. Checked on both forms Prettier writes (with and without an inner code block).
+  - `git revert` never runs commit-msg, so the revert assertion proved nothing. The test now runs `git revert --no-commit` then `git commit --no-edit`, which goes through the hook.
+  - `TASK_SUFFIX` accepted no space, several spaces or a tab before `(task`. Now exactly one. Three new rows failed first, then passed.
+  - `cleanupMessage` trimmed the header's leading spaces, which git keeps. It now strips only blank lines. The unit and hook tests failed first, then passed.
+  - 25f8a17's header was 73 characters (made before the hook existed). I reworded it to `feat(harness): commit-message validator and git exemptions (task 0003)` with a non-interactive `git rebase -i main` before any push. All 11 branch headers now pass `checkHeader()`.
+  - Not changed: `.githooks/pre-commit`'s `ALLOW_MAIN_COMMIT=1` hint no longer gets a commit onto main, because commit-msg refuses non-exempt commits off task branches, as AC3 requires. It's under Discovered for the owner.
+  - The "Reapply" note under Discovered was wrong (plain `git revert` skips the hook), so I removed it.
+- 2026-11-26: `npm run verify` after the fixes (all 381 unit tests in 16 files, all 5 e2e tests):
+
+  ```
+  harness check --full:
+    ✔ tasks (0.1s)
+    ✔ format (1.7s)
+    ✔ typecheck (2.2s)
+    ✔ lint (3.7s)
+    ✔ unit (9.4s)
+    ✔ e2e (4.2s)
+
+  All checks passed.
+  ```
+
 ## Discovered (out of scope)
 
-- Recent git versions write `Reapply "…"` when you revert a revert. The spec's exemption list doesn't include it, so such a commit on a task branch has to be reworded. The owner may want it added as an exemption.
+- `.githooks/pre-commit` still suggests `ALLOW_MAIN_COMMIT=1 git commit …` as a one-off override on main, but the new commit-msg hook refuses that commit unless its message is exempt. The owner should decide whether the hint goes or the override also applies to commit-msg.
 - `CONTRIBUTING.md` has no `ask` rule, so an agent can edit the written standard without approval, while the validator under `harness/` is protected. An `Edit(/CONTRIBUTING.md)` ask rule would match `CLAUDE.md`.
 - `splitSections()` in `harness/lib/tasks.ts` doesn't know about code fences: a `## ` line inside a fenced block counts as a heading. That's harmless for the PR draft at the end of a progress file, but a PR body with a `## ` line inside a code block would be misread by `pr:check`.
 - The commit-msg cleanup strips only `#` comment lines. With a custom `core.commentChar`, git's template lines stay in what's checked. That's harmless today, because they come after the blank line, but they aren't stripped the way git strips them.
+- Editing a PR's title or body re-runs `check` and `e2e` as well as `pr-standards`, since `ci.yml` has one trigger list (see Plan). If that costs too much, the owner could move `pr-standards` to its own workflow, which AC7 as written doesn't allow.
 
 ## Acceptance evidence
 
-- AC1:
-- AC2:
-- AC3:
-- AC4:
-- AC5:
-- AC6:
-- AC7:
-- AC8:
-- AC9:
-- AC10:
-- AC11:
-- AC12:
+- AC1: `harness/lib/commit-message.test.ts` "commit header (AC1)" and "commit message body (AC1)": a table with a passing and a failing row for each rule (type, scope, separator, subject, period, task-id, length at 72/73, format, body), each asserting the rule id, plus "explains each rule in words". 81/81 pass.
+- AC2: `harness/lib/commit-message.test.ts` "exemptions for git's own messages (AC2)": Merge (git merge, pull request, git pull), `Revert "…"`, `fixup!`, `squash!`, `amend!` pass; five look-alikes don't.
+- AC3: `harness/cli/commit-msg.test.ts`, with real commits in a scratch repo whose `core.hooksPath` is this `.githooks`: on a task branch, compliant commits pass, while format, body and other-task commits are refused with their reasons and exit non-zero; a merge, a revert and a fixup go through; off a task branch a compliant commit is refused with "/start-task <id>" and a fixup goes through; with a detached HEAD and mid-rebase (`git rebase --exec`), task 0009 passes and a bad format is refused. 12/12 pass.
+- AC4: `harness/lib/pull-request.test.ts` "the pull request template (AC4)": the five headings in order, one comment-line prompt each, the Task form `NNNN — tasks/NNNN-<slug>.md (part X of Y)`, and the untouched template fails pr:check.
+- AC5: `harness/lib/pull-request.test.ts` "pr:check title and branch (AC5)" (passing case, title rules, no exemptions for titles, six bad branches, id mismatch, skipped comparison) and `harness/cli/pr-check.test.ts` (exit 0 listing every check, exit 1 naming "title, branch, body", exit 2 usage, stdin, and the `npm run pr:check` script). `npm run --silent pr:check -- … --body-file -` gave exit 0 on a good draft and exit 1 on a bad title and body.
+- AC6: `harness/lib/pull-request.test.ts` "pr:check body (AC6)": each of the five headings missing and each left empty, every problem named at once, `None` counts, comments and the footer don't count as content, CRLF bodies, a Task section naming no spec, another task's spec, or a missing spec. The passing case is in AC5's first test. 31/31 pass.
+- AC7: `.github/workflows/ci.yml` job `pr-standards`, with `pull_request.types [opened, edited, synchronize, reopened]`, env-only inputs and no branch-commit checks. Ruby's YAML parser and `shellcheck` agree. The step run locally under `bash -e` exits 0 for a compliant PR with a CRLF body and 1 for a bad one, and a `$(…)` title ran nothing. The live run on GitHub (red, then green after an edit) can only exist once the PR is open, and will be added then.
+- AC8: `CONTRIBUTING.md` covers the commit format (good examples and a refused table, each checked against the validator), the exemptions, branches, the PR template, a task in several PRs, squash merging with the PR title as the commit on main, and the lifecycle (spec, /start-task, /finish-task, PR, a person merges). `README.md` and `CLAUDE.md` link to it.
+- AC9: `docs/harness.md`: rows "One commit format" (commit-msg hook) and "One pull request format" (`pr-standards`). "Recommended GitHub settings" requires `check`, `e2e` and `pr-standards`, allows squash only with the title set to the PR title and the message to the PR body, and gives the `gh api` commands, checked against GitHub's REST reference and not run.
+- AC10: `.claude/skills/start-task/SKILL.md` step 7 now says "Commit, in the format under "Commit messages" in `CONTRIBUTING.md`", replacing the inline `feat(<area>): …` example.
+- AC11: `.claude/skills/finish-task/SKILL.md` step 6 drafts the title and body into the progress file's `## Pull request` section and pipes the body into `npm run pr:check` until it passes. Step 9, after the go-ahead, opens the PR with `gh pr create --title … --body-file -` from the same draft. This task's own draft below passes through that exact `awk | npm run pr:check` command.
+- AC12: `docs/definition-of-done.md`: the commit item now points to `CONTRIBUTING.md`, and a new item requires the drafted PR title and body to pass `npm run pr:check` (approved by the owner).
 
 ## Definition of Done
 
-(Filled in by /finish-task.)
+- [x] `npm run verify` passes (format, typecheck, lint, unit tests with coverage thresholds, production build, e2e), and its summary is pasted in the progress log.
+- [x] If a prompt, an output schema or anything in `src/lib/llm/` changed, `npm run evals` meets the suite threshold and the summary is in the progress log. — N/A: no prompt, schema or `src/lib/llm/` changes.
+- [x] Every acceptance criterion has evidence under "Acceptance evidence": the test that proves it, or the command and output for what a test can't show. AC7's live GitHub run is added after the PR opens; the local run of the step stands in until then.
+- [x] New behaviour was written test-first: each new test was seen failing before the code that makes it pass. One exception, logged: the `pr:check` wiring test checks the `package.json` script and was written after the script.
+- [x] User-visible behaviour is covered by an e2e test, or the progress file says why not. — N/A: no app behaviour changed. The hook and `pr:check` are covered end to end by black-box tests that run real git and the CLI.
+- [x] The diff serves this task's acceptance criteria and nothing else. Unrelated findings are listed under "Discovered", not fixed.
+- [x] No test, assertion, lint rule or threshold was removed or loosened, and there is no new `eslint-disable`, `@ts-expect-error`, `.skip` or `.only`.
+- [x] No new dependency, unless the task needed one and the user approved the install.
+- [x] No secrets, API keys or `.env` contents in code, fixtures, logs or commits.
+- [x] The `reviewer` subagent reviewed the diff against the spec, and every correctness gap it found is fixed or answered in the progress file. It ran as a general-purpose subagent given the reviewer's instructions, because project agents aren't loaded in an unlocked session.
+- [x] Docs are updated wherever behaviour, commands or setup changed.
+- [x] The work is committed on the task branch, with commit messages in the format in `CONTRIBUTING.md`.
+- [x] The pull request title and body are drafted in the progress file and pass `npm run pr:check`.
+
+## Pull request
+
+feat(harness): enforce commit and pull request standards (task 0003)
+
+````markdown
+## Task
+
+0003 — tasks/0003-contribution-standards.md (part 1 of 1)
+
+## Summary
+
+One written standard for commits and pull requests, enforced where people and agents work. A zero-dependency validator, `harness/lib/commit-message.ts`, checks `type(scope): subject (task NNNN)` headers (at most 72 characters) and exempts git's own messages. The new `.githooks/commit-msg` runs it on every commit, and requires the branch's task on a task branch. `npm run pr:check` runs the same header check on the PR title, and also checks the branch name and the five-section body from the new `.github/pull_request_template.md`. CI's new `pr-standards` job runs it on every PR and on every title or body edit. `/finish-task` now drafts the PR into the progress file and checks it with the same command before opening it. `CONTRIBUTING.md` documents the standard. `docs/harness.md` gives the squash-only GitHub settings and the `gh api` commands for the owner to run (not applied here).
+
+## Acceptance criteria
+
+- AC1, AC2: `harness/lib/commit-message.test.ts`, a table with a passing and a failing case per rule, plus each exemption (81 tests).
+- AC3: `harness/cli/commit-msg.test.ts`, with real commits in a scratch repo: task branch, other task, non-task branch, merge/revert/fixup, detached HEAD and mid-rebase (12 tests).
+- AC4: the template tests in `harness/lib/pull-request.test.ts`.
+- AC5, AC6: `harness/lib/pull-request.test.ts` (31 tests) and `harness/cli/pr-check.test.ts` (7 tests): each refusal and the passing case.
+- AC7: the `pr-standards` job in `.github/workflows/ci.yml`. Checked locally with a YAML parse, `shellcheck`, and the step run under `bash -e`. This PR is its first live run.
+- AC8–AC12: `CONTRIBUTING.md`, `docs/harness.md`, the start-task and finish-task skills, and `docs/definition-of-done.md`. Evidence is in `progress/0003-contribution-standards.md`.
+
+## Verification
+
+```
+harness check --full:
+  ✔ tasks (0.1s)
+  ✔ format (1.7s)
+  ✔ typecheck (2.2s)
+  ✔ lint (3.7s)
+  ✔ unit (9.4s)
+  ✔ e2e (4.2s)
+
+All checks passed.
+```
+
+Also checked by hand: the hook on `git commit -v` with an editor, this branch's 11 commit headers through `checkHeader()`, and this body through `awk … | npm run pr:check`.
+
+## Discovered
+
+- `.githooks/pre-commit`'s `ALLOW_MAIN_COMMIT=1` hint no longer gets a commit onto main, because commit-msg refuses it. Should the hint go?
+- `CONTRIBUTING.md` has no `ask` rule, so agents can edit it without approval.
+- `splitSections()` doesn't know about code fences.
+- The cleanup strips only `#` comments, whatever `core.commentChar` is set to.
+- Editing a PR re-runs `check` and `e2e` as well.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+````
