@@ -72,19 +72,40 @@ resource environment 'Microsoft.App/managedEnvironments@2026-01-01' = {
   }
 }
 
+// Console and system logs go to the workspace; the rest stay off. Azure stores every
+// category the environment offers, in this order, so all are listed for a clean what-if.
+// If Azure adds a category, what-if will show it: add it here, disabled.
+var logCategories = [
+  { name: 'ContainerAppConsoleLogs', enabled: true }
+  { name: 'ContainerAppSystemLogs', enabled: true }
+  { name: 'ContainerAppHTTPLogs', enabled: false }
+  { name: 'AppEnvSpringAppConsoleLogs', enabled: false }
+  { name: 'AppEnvSessionConsoleLogs', enabled: false }
+  { name: 'AppEnvSessionPoolEventLogs', enabled: false }
+  { name: 'AppEnvSessionLifeCycleLogs', enabled: false }
+]
+var noRetentionPolicy = {
+  days: 0
+  enabled: false
+}
+
 resource environmentLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
   scope: environment
   name: 'to-log-analytics'
   properties: {
     workspaceId: logs.id
     logs: [
-      {
-        category: 'ContainerAppConsoleLogs'
-        enabled: true
+      for category in logCategories: {
+        category: category.name
+        enabled: category.enabled
+        retentionPolicy: noRetentionPolicy
       }
+    ]
+    metrics: [
       {
-        category: 'ContainerAppSystemLogs'
-        enabled: true
+        category: 'AllMetrics'
+        enabled: false
+        retentionPolicy: noRetentionPolicy
       }
     ]
   }

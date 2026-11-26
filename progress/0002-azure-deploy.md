@@ -92,6 +92,12 @@ status: in-progress
   - Fix: state the defaults, reorder the probes, and switch the environment to `destination: 'azure-monitor'` plus a `diagnosticSettings` resource that names the workspace by resource id (no `reference()`, no shared key).
   - what-if now shows only the intended changes: `+ diagnosticSettings/to-log-analytics`, `~ appLogsConfiguration.destination log-analytics => azure-monitor`, and `=` for the app, auth config and workspace. To be redeployed and rechecked.
 - 2026-11-26: AC3, live. The image config from GHCR (anonymous) has `User: node`, `ExposedPorts: 3000/tcp`, `Cmd: node server.js`, `PORT=3000`, `HOSTNAME=0.0.0.0` and `APP_COMMIT_SHA=3e3f0aa…`. `az containerapp show` reports `targetPort: 3000`, `external: true`, `minReplicas: 0`, `maxReplicas: 1`, `cpu 0.25`, `memory 0.5Gi`, `secrets: null` and `registries: null`.
+- 2026-11-26: AC5, live. Nothing was sent to the app while `az containerapp replica list` was polled every 60 s: `replicas=1` from 07:03:11 to 07:07:22, then `replicas=0` at 07:08:24. A single `GET /api/health` at 07:08:24 returned `200 in 25.889753s` (cold start) with `{"status":"ok","commit":"3e3f0aa…"}`, and `replicas after wake=1`.
+- 2026-11-26: AC2. With the owner's approval, I deployed the noise fix from the branch under the owner's login (`IMAGE_TAG=3e3f0aa…`), which succeeded.
+  - what-if then showed only the diagnostic setting, because Azure stores all 7 environment log categories plus `AllMetrics` with `retentionPolicy {days 0, enabled false}`. I declared all of them, in Azure's order.
+  - what-if before redeploying: `5 no change, 1 to ignore`. I deployed again (succeeded). what-if after that deploy: `Resource changes: 5 no change, 1 to ignore.` The ignored one is the deploy identity, which isn't in the template.
+  - `az containerapp revision list` still shows the single revision `maestro-de-espanol--jljx43g`, so the redeploys didn't restart the app.
+- 2026-11-26: AC6, owner decision. The platform behaviour (browser UA → 302 to sign-in, non-browser → 401, browser plus XHR header → 403, all refused before the app) is accepted as meeting AC6. It's documented in `docs/deployment.md` under "What an anonymous request gets".
 
 ## Discovered (out of scope)
 
