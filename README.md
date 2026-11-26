@@ -33,6 +33,10 @@ npm run dev                     # http://localhost:3000
 
 Branch names, the commit and pull request formats, and how they're enforced are in [CONTRIBUTING.md](CONTRIBUTING.md). How tasks work is described in [tasks/README.md](tasks/README.md), and every guardrail in [docs/harness.md](docs/harness.md).
 
+## Design
+
+Every screen follows the design system in [docs/design.md](docs/design.md): colour, type, spacing, motion, components, theming and accessibility. Its tokens live in `src/styles/tokens.css`, and tests keep the guide and the code in step.
+
 ## Deployment
 
 The app runs on Azure Container Apps, and merging to `main` deploys it once CI passes. The architecture, one-time setup, deploys, rollback, cost and teardown are described in [docs/deployment.md](docs/deployment.md).
@@ -42,6 +46,8 @@ The app runs on Azure Container Apps, and merging to `main` deploys it once CI p
 ```
 src/app/                 Next.js routes (thin)
 src/features/<feature>/  Feature logic, prompts, schemas, UI and their tests
+src/components/ui/       Shared UI components from the design system
+src/styles/              Design tokens and the tests that guard them
 src/lib/llm/             The only code that talks to Claude
 infra/                   Bicep for Azure, bootstrap and deploy scripts
 e2e/                     Playwright tests and the mock Claude server they use
