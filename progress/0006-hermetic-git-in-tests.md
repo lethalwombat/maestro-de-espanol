@@ -36,6 +36,7 @@ Changed: `vitest.config.ts`, `.githooks/pre-push`.
 - 2026-11-26: AC1, test first. Under `GIT_DIR=$S/repo.git` both tests failed (output under AC1). `GIT_EDITOR=true` from this session's environment also showed up, which the setup file removes too.
 - 2026-11-26: AC3 before the fix: 29 failed, not the 30 the spec predicted. The sentinel got `bare = true` and `name = Test`. `git config --local --list` of the real repo was the same before and after, because the sentinel absorbed the writes.
 - 2026-11-26: AC2. Added the setup file and wired it into both projects. ESLint's `no-dynamic-delete` refused `delete process.env[key]`, so it uses `Reflect.deleteProperty`.
+- 2026-11-26: AC6. `npm run check` in the main checkout fails lint on `.claude/worktrees/task+0005-design-system/.next/types/` only. A clean clone with a symlinked `node_modules` broke Turbopack's root detection for e2e, so the clone gets an APFS copy (`cp -cR`), and `verify` passes there.
 - 2026-11-26: AC4, test first. Of the four pre-push tests, only the `GIT_*` test failed before the `unset`. The refusal and override tests passed before and after, which shows they behave as before. I checked the red again after the final assertion rewrite by stashing the hook change.
 
 ## Discovered (out of scope)
@@ -45,13 +46,56 @@ Changed: `vitest.config.ts`, `.githooks/pre-push`.
 
 ## Acceptance evidence
 
-- AC1:
-- AC2:
-- AC3:
-- AC4:
-- AC5:
-- AC6:
-- AC7:
+- AC1: `harness/vitest/hermetic-git.test.ts`. Before the setup file, `S=$(mktemp -d); GIT_DIR="$S/repo.git" npx vitest run harness/vitest/hermetic-git.test.ts`:
+
+  ```
+  FAIL  |node| harness/vitest/hermetic-git.test.ts > hermetic git > leaves no GIT_* variable in a child process's environment
+  AssertionError: expected [ 'GIT_DIR', 'GIT_EDITOR' ] to deeply equal []
+  Test Files  1 failed (1)
+       Tests  2 failed (2)
+  ```
+
+  The `process.env` test failed the same way (2 of 2 failed).
+
+- AC2: `harness/vitest/hermetic-git.ts`, listed in `setupFiles` of the `node` and `dom` projects in `vitest.config.ts` (807041b). The same command after it: `Test Files 1 passed (1)`, `Tests 2 passed (2)`.
+- AC3: the spec's repro. Before the fix:
+
+  ```
+  Test Files  2 failed | 1 passed (3)
+       Tests  29 failed | 17 passed (46)
+  ls -A "$S": repo.git
+  grep in $S/repo.git/config: bare = true, name = Test
+  ```
+
+  After the fix:
+
+  ```
+  Test Files  3 passed (3)
+       Tests  46 passed (46)
+  ls -A "$S": (nothing)
+  ```
+
+  Both times, `git config --local --list` of the real repo was the same before and after the run.
+
+- AC4: `.githooks/pre-push` unsets the six variables before `exec npm run --silent check` (e13f64a). `harness/githooks/pre-push.test.ts` runs the hook with a worktree-style `GIT_*` environment and a fake `npm`. Without the `unset`: `AssertionError: expected [ 'GIT_DIR', 'GIT_INDEX_FILE', …(4) ] to deeply equal []`, `Tests 1 failed | 3 passed (4)`. With it: `Tests 4 passed (4)`. The refusal of `main` and `master` (exit 1, message, `npm` never called) and `ALLOW_MAIN_PUSH=1` (exit 0, `npm run --silent check` called) pass both before and after.
+- AC5: `git diff --stat main -- harness/lib/git.ts harness/cli/commit-msg.ts harness/lib/git.test.ts harness/cli/commit-msg.test.ts` is empty. Neither production file mentions `GIT_` (`grep -c` gives 0 and 0). `npx vitest run harness/lib/git.test.ts harness/cli/commit-msg.test.ts`: `Tests 23 passed (23)`.
+- AC6: `npm run verify` (which runs `check` first) in a clean clone of this branch at e13f64a, with `node_modules` copied in, because this checkout's lint picks up the 0005 worktree's generated files (see Discovered):
+
+  ```
+  harness check --full:
+    ✔ tasks (0.1s)
+    ✔ format (1.2s)
+    ✔ typecheck (3.0s)
+    ✔ lint (4.2s)
+    ✔ unit (9.8s)
+    ✔ e2e (6.1s)
+
+  All checks passed.
+  ```
+
+  Unit tests: `Test Files 18 passed (18)`, `Tests 387 passed (387)`.
+
+- AC7: pending. The owner runs the push from a linked worktree.
 
 ## Definition of Done
 
