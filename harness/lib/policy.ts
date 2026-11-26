@@ -28,6 +28,13 @@ export const PROTECTED_PATHS: readonly string[] = [
   "vitest.evals.config.ts",
 ];
 
+/**
+ * Files inside PROTECTED_PATHS that agents may write, by the owner's decision.
+ * Keep it short. Not mirrored in .claude/settings.json: a deny rule there would
+ * override the exception, so directories holding one get file-level denies instead.
+ */
+export const AGENT_WRITABLE_PATHS: ReadonlySet<string> = new Set([".github/workflows/deploy.yml"]);
+
 export interface Verdict {
   decision: "deny" | "ask";
   reason: string;
@@ -73,6 +80,7 @@ export function normalizeRelative(path: string): string {
 /** The protected entry that covers `relPath`, or null. */
 export function protectedEntry(relPath: string): string | null {
   const path = normalizeRelative(relPath);
+  if (AGENT_WRITABLE_PATHS.has(path)) return null;
   for (const entry of PROTECTED_PATHS) {
     const covered = entry.endsWith("/")
       ? path === entry.slice(0, -1) || path.startsWith(entry)
